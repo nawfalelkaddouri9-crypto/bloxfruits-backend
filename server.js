@@ -28,7 +28,7 @@ function loadCache() {
   } catch (e) {
     console.error("Failed to read cache:", e.message);
   }
-  return { current: null, last: null, beforeLast: null, lastUpdated: null, values: null };
+  return { current: null, last: null, beforeLast: null, lastUpdated: null };
 }
 
 function saveCache(data) {
@@ -53,22 +53,16 @@ function stockHasChanged(oldStock, newStock) {
 async function fetchAndUpdateStock() {
   console.log(`[${new Date().toISOString()}] Polling RapidAPI...`);
   try {
-    const [stockRes, valuesRes] = await Promise.all([
-      axios.get(`https://${RAPID_API_HOST}/stock`, { headers, timeout: 15000 }),
-      axios.get(`https://${RAPID_API_HOST}/fruit`, { headers, timeout: 15000 }),
-    ]);
+    const response = await axios.get(`https://${RAPID_API_HOST}/`, {
+      headers,
+      timeout: 15000,
+    });
 
-    const newStock = stockRes.data;
-    const newValues = valuesRes.data;
-
-    console.log(`[${new Date().toISOString()}] Stock:`, JSON.stringify(newStock).slice(0, 100));
-    console.log(`[${new Date().toISOString()}] Values:`, JSON.stringify(newValues).slice(0, 100));
-
-    stockState.values = newValues;
+    const newStock = response.data;
+    console.log(`[${new Date().toISOString()}] Response:`, JSON.stringify(newStock).slice(0, 200));
 
     if (!stockHasChanged(stockState.current, newStock)) {
       console.log(`[${new Date().toISOString()}] Stock unchanged — skipping.`);
-      saveCache(stockState);
       return;
     }
 
@@ -97,7 +91,6 @@ app.get("/api/stock", (req, res) => {
     last: stockState.last,
     beforeLast: stockState.beforeLast,
     lastUpdated: stockState.lastUpdated,
-    values: stockState.values,
   });
 });
 
