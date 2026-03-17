@@ -53,7 +53,6 @@ function stockHasChanged(oldStock, newStock) {
 async function fetchAndUpdateStock() {
   console.log(`[${new Date().toISOString()}] Polling RapidAPI...`);
   try {
-    // Fetch stock and values at the same time
     const [stockRes, valuesRes] = await Promise.all([
       axios.get(`https://${RAPID_API_HOST}/stock`, { headers, timeout: 15000 }),
       axios.get(`https://${RAPID_API_HOST}/fruit`, { headers, timeout: 15000 }),
@@ -65,7 +64,6 @@ async function fetchAndUpdateStock() {
     console.log(`[${new Date().toISOString()}] Stock:`, JSON.stringify(newStock).slice(0, 100));
     console.log(`[${new Date().toISOString()}] Values:`, JSON.stringify(newValues).slice(0, 100));
 
-    // Always update values
     stockState.values = newValues;
 
     if (!stockHasChanged(stockState.current, newStock)) {
@@ -117,8 +115,3 @@ app.listen(PORT, async () => {
   await fetchAndUpdateStock();
   setInterval(fetchAndUpdateStock, POLL_INTERVAL_MS);
 });
-```
-
-Klik **Commit changes** → wacht 2 minuten → ga dan naar:
-```
-https://bloxfruits-stock-api-xh8c.onrender.com/api/stock
