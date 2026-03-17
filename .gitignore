@@ -1,0 +1,4 @@
+node_modules/
+stock_cache.json
+.env
+*.log
