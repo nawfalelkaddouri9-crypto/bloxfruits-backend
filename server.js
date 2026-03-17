@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "stock_cache.json");
 const BLOX_API_URL = "https://blox-fruits-api.onrender.com/api/bloxfruits/stock";
-const POLL_INTERVAL_MS = 10 * 60 * 1000; // poll every 10 minutes
+const POLL_INTERVAL_MS = 2 * 60 * 1000; // poll every 2 minutes
 
 app.use(cors());
 app.use(express.static(path.join(__dirname, "public")));
