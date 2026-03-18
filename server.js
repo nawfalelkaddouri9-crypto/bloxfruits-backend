@@ -121,9 +121,15 @@ async function fetchStockFromDiscord() {
       console.error("Channel not found!");
       return;
     }
+const messages = await channel.messages.fetch({ limit: 20 });
 
-    // Send /stock command by posting a message that triggers the bot
-    // Instead, read the last 20 messages and find the most recent stock embed
+// DEBUG - log alle berichten
+for (const msg of messages.values()) {
+  console.log(`MSG from ${msg.author.tag} | embeds: ${msg.embeds.length} | content: ${msg.content.slice(0,50)}`);
+  if (msg.embeds.length > 0) {
+    console.log(`EMBED:`, JSON.stringify(msg.embeds[0]).slice(0, 200));
+  }
+}
     const messages = await channel.messages.fetch({ limit: 20 });
     
     let latestStock = null;
