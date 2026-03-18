@@ -3,22 +3,21 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
+const { Client, GatewayIntentBits } = require("discord.js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "stock_cache.json");
-const POLL_INTERVAL_MS = 2 * 60 * 1000;
+const POLL_INTERVAL_MS = 2 * 60 * 1000; // every 2 minutes
 
-const RAPID_API_KEY = "19cc0b9b9bmsh797880eb87d7c2dp103dfajsn74a12bb7c14d";
-const RAPID_API_HOST = "blox-fruit-stock-fruit.p.rapidapi.com";
-
-const headers = {
-  "x-rapidapi-key": RAPID_API_KEY,
-  "x-rapidapi-host": RAPID_API_HOST,
-};
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const CHANNEL_ID = process.env.CHANNEL_ID;
+const FRUITYBLOX_APP_ID = "1086680940423434380"; // FruityBlox Stock Bot app ID
 
 app.use(cors());
 app.use(express.static(path.join(__dirname, "public")));
+
+// ─── Cache ────────────────────────────────────────────────────────────────────
 
 function loadCache() {
   try {
@@ -41,27 +40,117 @@ function saveCache(data) {
 
 let stockState = loadCache();
 
+// ─── Parse Discord embed ──────────────────────────────────────────────────────
+
+function parseStockEmbed(embeds) {
+  const result = { normal: [], mirage: [] };
+  if (!embeds || embeds.length === 0) return null;
+
+  const embed = embeds[0];
+  const description = embed.description || "";
+  const fields = embed.fields || [];
+
+  // Try parsing from fields first
+  let currentSection = null;
+  for (const field of fields) {
+    const name = field.name?.toLowerCase() || "";
+    if (name.includes("normal")) currentSection = "normal";
+    else if (name.includes("mirage")) currentSection = "mirage";
+
+    if (currentSection && field.value) {
+      const lines = field.value.split("\n");
+      for (const line of lines) {
+        const match = line.match(/([A-Za-z]+)\s*[-–]\s*\$?\s*([\d,]+)/);
+        if (match) {
+          result[currentSection].push({
+            name: match[1].trim(),
+            price: parseInt(match[2].replace(/,/g, "")),
+          });
+        }
+      }
+    }
+  }
+
+  // Try parsing from description if fields didn't work
+  if (result.normal.length === 0 && result.mirage.length === 0 && description) {
+    const lines = description.split("\n");
+    currentSection = null;
+    for (const line of lines) {
+      if (line.toLowerCase().includes("normal stock")) { currentSection = "normal"; continue; }
+      if (line.toLowerCase().includes("mirage stock")) { currentSection = "mirage"; continue; }
+      if (currentSection) {
+        const match = line.match(/([A-Za-z]+)\s*[-–]\s*\$?\s*([\d,]+)/);
+        if (match) {
+          result[currentSection].push({
+            name: match[1].trim(),
+            price: parseInt(match[2].replace(/,/g, "")),
+          });
+        }
+      }
+    }
+  }
+
+  if (result.normal.length === 0 && result.mirage.length === 0) return null;
+  return result;
+}
+
 function stockHasChanged(oldStock, newStock) {
   if (!oldStock) return true;
-  if (!newStock || Object.keys(newStock).length === 0) {
-    console.log(`[${new Date().toISOString()}] Empty stock — ignoring.`);
-    return false;
-  }
+  if (!newStock) return false;
   return JSON.stringify(oldStock) !== JSON.stringify(newStock);
 }
 
-async function fetchAndUpdateStock() {
-  console.log(`[${new Date().toISOString()}] Polling RapidAPI...`);
+// ─── Discord client ───────────────────────────────────────────────────────────
+
+const discordClient = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
+async function fetchStockFromDiscord() {
+  console.log(`[${new Date().toISOString()}] Fetching stock from Discord...`);
   try {
-    const response = await axios.get(`https://${RAPID_API_HOST}/`, {
-      headers,
-      timeout: 15000,
-    });
+    const channel = await discordClient.channels.fetch(CHANNEL_ID);
+    if (!channel) {
+      console.error("Channel not found!");
+      return;
+    }
 
-    const newStock = response.data;
-    console.log(`[${new Date().toISOString()}] Response:`, JSON.stringify(newStock).slice(0, 200));
+    // Send /stock command by posting a message that triggers the bot
+    // Instead, read the last 20 messages and find the most recent stock embed
+    const messages = await channel.messages.fetch({ limit: 20 });
+    
+    let latestStock = null;
+    let latestTimestamp = 0;
 
-    if (!stockHasChanged(stockState.current, newStock)) {
+    for (const msg of messages.values()) {
+      // Look for messages from the FruityBlox bot with embeds
+      if (msg.embeds && msg.embeds.length > 0) {
+        const embed = msg.embeds[0];
+        const isStockEmbed = 
+          embed.title?.toLowerCase().includes("stock") ||
+          embed.description?.toLowerCase().includes("normal stock") ||
+          embed.author?.name?.toLowerCase().includes("fruityblox");
+
+        if (isStockEmbed && msg.createdTimestamp > latestTimestamp) {
+          const parsed = parseStockEmbed(msg.embeds);
+          if (parsed) {
+            latestStock = parsed;
+            latestTimestamp = msg.createdTimestamp;
+          }
+        }
+      }
+    }
+
+    if (!latestStock) {
+      console.log(`[${new Date().toISOString()}] No stock embed found in last 20 messages.`);
+      return;
+    }
+
+    if (!stockHasChanged(stockState.current, latestStock)) {
       console.log(`[${new Date().toISOString()}] Stock unchanged — skipping.`);
       return;
     }
@@ -69,15 +158,17 @@ async function fetchAndUpdateStock() {
     console.log(`[${new Date().toISOString()}] New stock detected! Saving...`);
     stockState.beforeLast = stockState.last;
     stockState.last = stockState.current;
-    stockState.current = newStock;
+    stockState.current = latestStock;
     stockState.lastUpdated = new Date().toISOString();
-
     saveCache(stockState);
-    console.log(`[${new Date().toISOString()}] Updated successfully.`);
+    console.log(`[${new Date().toISOString()}] Stock updated:`, JSON.stringify(latestStock));
+
   } catch (err) {
-    console.error(`[${new Date().toISOString()}] Failed:`, err.message);
+    console.error(`[${new Date().toISOString()}] Discord fetch failed:`, err.message);
   }
 }
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.get("/api/stock", (req, res) => {
   if (!stockState.current) {
@@ -103,8 +194,18 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.listen(PORT, async () => {
+// ─── Start ────────────────────────────────────────────────────────────────────
+
+discordClient.once("ready", async () => {
+  console.log(`Discord bot logged in as ${discordClient.user.tag}`);
+  await fetchStockFromDiscord();
+  setInterval(fetchStockFromDiscord, POLL_INTERVAL_MS);
+});
+
+discordClient.login(DISCORD_TOKEN).catch(err => {
+  console.error("Failed to login to Discord:", err.message);
+});
+
+app.listen(PORT, () => {
   console.log(`Blox Fruits Stock Server running on port ${PORT}`);
-  await fetchAndUpdateStock();
-  setInterval(fetchAndUpdateStock, POLL_INTERVAL_MS);
 });
