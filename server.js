@@ -1,16 +1,13 @@
 const express = require("express");
+const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
-const { Client, GatewayIntentBits } = require("discord.js");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CACHE_FILE = path.join(__dirname, "stock_cache.json");
 const POLL_INTERVAL_MS = 2 * 60 * 1000;
-
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
-const CHANNEL_ID = "1484061478695735317";
 
 app.use(cors());
 app.use(express.static(path.join(__dirname, "public")));
@@ -42,63 +39,99 @@ function stockHasChanged(oldStock, newStock) {
   return JSON.stringify(oldStock) !== JSON.stringify(newStock);
 }
 
-const discordClient = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
-
-async function fetchStockFromDiscord() {
-  console.log(`[${new Date().toISOString()}] Fetching from Discord...`);
+async function fetchAndUpdateStock() {
+  console.log(`[${new Date().toISOString()}] Fetching from Fandom API...`);
   try {
-    const channel = await discordClient.channels.fetch(CHANNEL_ID);
-    if (!channel) { console.error("Channel not found!"); return; }
-
-    const msgs = await channel.messages.fetch({ limit: 10 });
-    console.log(`Found ${msgs.size} messages`);
-
-    for (const msg of msgs.values()) {
-      console.log("---");
-      console.log(`Author: ${msg.author.tag}`);
-      console.log(`Content: ${msg.content.slice(0, 100)}`);
-      console.log(`Embeds: ${msg.embeds.length}`);
-      console.log(`Components: ${msg.components.length}`);
-      if (msg.embeds.length > 0) {
-        console.log(`Embed[0] full:`, JSON.stringify(msg.embeds[0]).slice(0, 500));
+    const response = await axios.get(
+      "https://blox-fruits.fandom.com/api.php?action=parse&page=Blox_Fruits_%22Stock%22&prop=wikitext&format=json",
+      {
+        timeout: 15000,
+        headers: {
+          "User-Agent": "Mozilla/5.0 BloxFruitsStockTracker/1.0",
+        }
       }
-      if (msg.components.length > 0) {
-        console.log(`Components full:`, JSON.stringify(msg.components).slice(0, 500));
+    );
+
+    const wikitext = response.data?.parse?.wikitext?.["*"] || "";
+    console.log("Wikitext sample:", wikitext.slice(0, 500));
+
+    const result = { normal: [], mirage: [] };
+
+    // Parse wiki table format
+    const lines = wikitext.split("\n");
+    let currentSection = null;
+
+    for (const line of lines) {
+      const lower = line.toLowerCase();
+      if (lower.includes("normal") && lower.includes("stock")) { currentSection = "normal"; continue; }
+      if (lower.includes("mirage") && lower.includes("stock")) { currentSection = "mirage"; continue; }
+
+      if (currentSection) {
+        // Wiki format: | FruitName || price
+        const match = line.match(/\|\s*([A-Za-z\s\-]+)\s*\|\|\s*([\d,]+)/);
+        if (match) {
+          const name = match[1].trim();
+          const price = parseInt(match[2].replace(/,/g, ""));
+          if (name && price > 0) {
+            result[currentSection].push({ name, price });
+          }
+        }
       }
     }
 
+    console.log("Parsed:", JSON.stringify(result));
+
+    if (result.normal.length === 0 && result.mirage.length === 0) {
+      console.log("No fruits found in wiki.");
+      return;
+    }
+
+    if (!stockHasChanged(stockState.current, result)) {
+      console.log("Stock unchanged — skipping.");
+      return;
+    }
+
+    console.log("New stock detected! Saving...");
+    stockState.beforeLast = stockState.last;
+    stockState.last = stockState.current;
+    stockState.current = result;
+    stockState.lastUpdated = new Date().toISOString();
+    saveCache(stockState);
+
   } catch (err) {
-    console.error("Discord fetch failed:", err.message);
+    console.error("Fetch failed:", err.message);
+    if (err.response) {
+      console.error("Status:", err.response.status);
+    }
   }
 }
 
 app.get("/api/stock", (req, res) => {
   if (!stockState.current) {
-    return res.status(503).json({ error: "Stock data not yet available." });
+    return res.status(503).json({
+      error: "Stock data not yet available.",
+      lastUpdated: stockState.lastUpdated,
+    });
   }
-  res.json(stockState);
+  res.json({
+    current: stockState.current,
+    last: stockState.last,
+    beforeLast: stockState.beforeLast,
+    lastUpdated: stockState.lastUpdated,
+  });
 });
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", hasData: !!stockState.current, uptime: Math.floor(process.uptime()) + "s" });
+  res.json({
+    status: "ok",
+    hasData: !!stockState.current,
+    lastUpdated: stockState.lastUpdated,
+    uptime: Math.floor(process.uptime()) + "s",
+  });
 });
 
-discordClient.once("clientReady", async () => {
-  console.log(`Bot logged in as ${discordClient.user.tag}`);
-  await fetchStockFromDiscord();
-  setInterval(fetchStockFromDiscord, POLL_INTERVAL_MS);
-});
-
-discordClient.login(DISCORD_TOKEN).catch(err => {
-  console.error("Login failed:", err.message);
-});
-
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  await fetchAndUpdateStock();
+  setInterval(fetchAndUpdateStock, POLL_INTERVAL_MS);
 });
