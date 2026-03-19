@@ -37,7 +37,7 @@ function saveCache(data) {
   }
 }
 
-let stockState = loadCache();
+let stockState = { current: null, last: null, beforeLast: null, lastUpdated: null };
 
 function parseStockEmbed(embeds) {
   const result = { normal: [], mirage: [] };
