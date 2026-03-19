@@ -3,7 +3,6 @@ const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
-const cheerio = require("cheerio");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -41,68 +40,47 @@ function stockHasChanged(oldStock, newStock) {
 }
 
 async function fetchAndUpdateStock() {
-  console.log(`[${new Date().toISOString()}] Scraping fruityblox.com...`);
+  console.log(`[${new Date().toISOString()}] Fetching from FruityBlox API...`);
   try {
-    const response = await axios.get("https://fruityblox.com/stock", {
+    // Try the Next.js API route that FruityBlox uses internally
+    const response = await axios.get("https://fruityblox.com/api/stock", {
       timeout: 15000,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept": "application/json",
+        "Referer": "https://fruityblox.com/stock",
       }
     });
 
-    const $ = cheerio.load(response.data);
+    console.log("Response status:", response.status);
+    console.log("Response data:", JSON.stringify(response.data).slice(0, 500));
+
+    const data = response.data;
     const result = { normal: [], mirage: [] };
 
-    console.log("Page loaded, parsing...");
-
-    // FruityBlox renders stock in sections
-    // Try multiple selectors to find fruit data
-    $("*").each((i, el) => {
-      const text = $(el).text().trim();
-      // Look for fruit name patterns with prices
-    });
-
-    // Parse based on the page structure
-    const pageText = $("body").text();
-    console.log("Page text sample:", pageText.slice(0, 500));
-
-    // Look for Normal and Mirage sections
-    const normalMatch = pageText.match(/Normal[\s\S]*?(?=Mirage|$)/i);
-    const mirageMatch = pageText.match(/Mirage[\s\S]*/i);
-
-    const fruitPattern = /([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s*\$\s*([\d,]+)/g;
-
-    if (normalMatch) {
-      let match;
-      const normalText = normalMatch[0];
-      while ((match = fruitPattern.exec(normalText)) !== null) {
-        const name = match[1].trim();
-        const price = parseInt(match[2].replace(/,/g, ""));
-        if (name !== "Normal" && name !== "Mirage" && name !== "Next" && price > 0) {
-          result.normal.push({ name, price });
+    // Parse whatever format FruityBlox returns
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        const name = item.name || item.fruit || item.title;
+        const price = item.price || item.beliPrice || item.beli;
+        const type = item.type || item.dealer || "";
+        if (name && price) {
+          if (type.toLowerCase().includes("mirage")) {
+            result.mirage.push({ name, price: parseInt(price) });
+          } else {
+            result.normal.push({ name, price: parseInt(price) });
+          }
         }
       }
+    } else if (data.normal || data.mirage) {
+      result.normal = data.normal || [];
+      result.mirage = data.mirage || [];
     }
 
-    fruitPattern.lastIndex = 0;
-
-    if (mirageMatch) {
-      let match;
-      const mirageText = mirageMatch[0];
-      while ((match = fruitPattern.exec(mirageText)) !== null) {
-        const name = match[1].trim();
-        const price = parseInt(match[2].replace(/,/g, ""));
-        if (name !== "Normal" && name !== "Mirage" && name !== "Next" && price > 0) {
-          result.mirage.push({ name, price });
-        }
-      }
-    }
-
-    console.log("Parsed result:", JSON.stringify(result));
+    console.log("Parsed:", JSON.stringify(result));
 
     if (result.normal.length === 0 && result.mirage.length === 0) {
-      console.log("No fruits found — site may use JavaScript rendering");
+      console.log("No fruits found in API response.");
       return;
     }
 
@@ -117,10 +95,13 @@ async function fetchAndUpdateStock() {
     stockState.current = result;
     stockState.lastUpdated = new Date().toISOString();
     saveCache(stockState);
-    console.log("Saved:", JSON.stringify(result));
 
   } catch (err) {
-    console.error("Scrape failed:", err.message);
+    console.error("Fetch failed:", err.message);
+    if (err.response) {
+      console.error("Status:", err.response.status);
+      console.error("Data:", JSON.stringify(err.response.data).slice(0, 200));
+    }
   }
 }
 
