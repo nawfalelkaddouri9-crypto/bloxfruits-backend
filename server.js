@@ -13,7 +13,6 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 
 console.log("TOKEN EXISTS:", !!DISCORD_TOKEN);
-console.log("TOKEN LENGTH:", DISCORD_TOKEN?.length);
 console.log("CHANNEL_ID:", CHANNEL_ID);
 
 app.use(cors());
@@ -51,23 +50,27 @@ function parseStockEmbed(embeds) {
     ...(embed.fields || []).map(f => f.name + " " + f.value),
   ].join("\n");
 
-  // Remove Discord emoji tags like <:dark:123456789> and markdown
+  // Remove Discord emoji tags and markdown
   const cleanText = rawText
     .replace(/<:[^:]+:\d+>/g, "")
+    .replace(/<a:[^:]+:\d+>/g, "")
     .replace(/\*\*/g, "")
     .replace(/`/g, "");
 
-  console.log("CLEAN TEXT:", cleanText.slice(0, 300));
+  console.log("CLEAN TEXT:", cleanText.slice(0, 400));
 
   let currentSection = null;
   for (const line of cleanText.split("\n")) {
     const lower = line.toLowerCase();
     if (lower.includes("normal stock")) { currentSection = "normal"; continue; }
     if (lower.includes("mirage stock")) { currentSection = "mirage"; continue; }
-    if (lower.includes("outdated") || lower.includes("refreshes")) continue;
+    if (lower.includes("outdated") || lower.includes("refreshes") || lower.includes("stock changes") || lower.includes("add me")) continue;
 
     if (currentSection) {
-      const match = line.match(/([A-Za-z\-]+)\s*[-–]\s*([\d,]+)/);
+      // Supports both formats:
+      // "Dark - 500,000" (FruityBlox)
+      // "Flame • 250,000" (Bloxy Stocks)
+      const match = line.match(/([A-Za-z\-]+)\s*[•\-–]\s*([\d,]+)/);
       if (match) {
         result[currentSection].push({
           name: match[1].trim(),
