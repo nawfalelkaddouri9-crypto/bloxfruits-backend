@@ -30,7 +30,7 @@
       display: flex; align-items: center; gap: 12px;
       position: sticky; top: 0; z-index: 10;
     }
-    header .logo { font-size: 28px; }
+    header .logo { width: 32px; height: 32px; }
     header h1 { font-size: 20px; font-weight: 700; }
     header h1 span { color: var(--accent); }
     .live-badge {
@@ -85,15 +85,17 @@
     .fruit-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: var(--radius); padding: 14px 12px 10px;
-      display: flex; flex-direction: column; gap: 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
       box-shadow: var(--shadow); position: relative; overflow: hidden;
+      text-align: center;
     }
     .fruit-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
     .normal-card::before { background: var(--accent); }
     .mirage-card::before { background: var(--mirage); }
 
-    .fruit-icon { font-size: 26px; line-height: 1; margin-bottom: 2px; }
-    .fruit-name { font-size: 14px; font-weight: 700; }
+    .fruit-icon { width: 56px; height: 56px; object-fit: contain; }
+    .fruit-icon-fallback { font-size: 40px; line-height: 1; }
+    .fruit-name { font-size: 13px; font-weight: 700; }
     .fruit-price { font-size: 12px; color: var(--accent); font-weight: 600; }
     .mirage-card .fruit-price { color: var(--mirage); }
     .beli { font-size: 10px; color: var(--muted); }
@@ -123,14 +125,14 @@
     .mirage-badge {
       background: #003d3b; color: var(--mirage);
       font-size: 10px; font-weight: 700; padding: 2px 7px;
-      border-radius: 20px; display: inline-block; margin-top: 2px;
+      border-radius: 20px; display: inline-block;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <span class="logo">🍎</span>
+  <img class="logo" src="https://static.wikia.nocookie.net/blox-fruits/images/4/4a/Blox_fruit_logo.png" onerror="this.outerHTML='🍎'">
   <h1>Blox Fruits <span>Stock</span></h1>
   <span class="live-badge">LIVE</span>
 </header>
@@ -174,39 +176,78 @@
 
 <script>
   const API_BASE = window.BACKEND_URL || "https://bloxfruits-stock-api-xh8c.onrender.com";
-  const CACHE_KEY = "bloxfruits_stock_v2";
+  const CACHE_KEY = "bloxfruits_stock_v3";
   const REFRESH_MS = 2 * 60 * 1000;
 
-  const FRUIT_ICONS = {
-    "Dark": "🌑", "Spike": "🌵", "Bomb": "💣", "Chop": "⚔️",
-    "Spring": "🌀", "Kilo": "⚖️", "Smoke": "💨", "Flame": "🔥",
-    "Falcon": "🦅", "Ice": "❄️", "Sand": "🏜️", "Diamond": "💎",
-    "Light": "✨", "Rubber": "🫧", "Barrier": "🛡️", "Magma": "🌋",
-    "Quake": "💥", "Buddha": "☯️", "Love": "❤️", "Spider": "🕷️",
-    "Sound": "🎵", "Phoenix": "🦜", "Portal": "🌀", "Paw": "🐾",
-    "Gravity": "🌍", "Mammoth": "🦣", "Shadow": "👥", "Venom": "☠️",
-    "Control": "🎮", "Blizzard": "🌨️", "Dragon": "🐉", "Leopard": "🐆",
-    "Kitsune": "🦊", "Ghost": "👻", "Blade": "🗡️", "Creation": "✨",
-    "T-Rex": "🦖", "Human": "👊",
+  // Blox Fruits Update 29 fruit image URLs from Fandom Wiki
+  const FRUIT_IMAGES = {
+    "Kilo":     "https://static.wikia.nocookie.net/blox-fruits/images/5/52/Kilo_Fruit_Icon.webp",
+    "Bomb":     "https://static.wikia.nocookie.net/blox-fruits/images/0/09/Bomb_Fruit_Icon.webp",
+    "Spike":    "https://static.wikia.nocookie.net/blox-fruits/images/e/e3/Spike_Fruit_Icon.webp",
+    "Chop":     "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Chop_Fruit_Icon.webp",
+    "Spring":   "https://static.wikia.nocookie.net/blox-fruits/images/5/5e/Spring_Fruit_Icon.webp",
+    "Rocket":   "https://static.wikia.nocookie.net/blox-fruits/images/6/67/Rocket_Fruit_Icon.webp",
+    "Spin":     "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Spin_Fruit_Icon.webp",
+    "Blade":    "https://static.wikia.nocookie.net/blox-fruits/images/1/1e/Blade_Fruit_Icon.webp",
+    "Smoke":    "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Smoke_Fruit_Icon.webp",
+    "Flame":    "https://static.wikia.nocookie.net/blox-fruits/images/5/54/Flame_Fruit_Icon.webp",
+    "Falcon":   "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Falcon_Fruit_Icon.webp",
+    "Ice":      "https://static.wikia.nocookie.net/blox-fruits/images/4/4e/Ice_Fruit_Icon.webp",
+    "Sand":     "https://static.wikia.nocookie.net/blox-fruits/images/4/4d/Sand_Fruit_Icon.webp",
+    "Dark":     "https://static.wikia.nocookie.net/blox-fruits/images/9/9e/Dark_Fruit_Icon.webp",
+    "Diamond":  "https://static.wikia.nocookie.net/blox-fruits/images/d/d4/Diamond_Fruit_Icon.webp",
+    "Light":    "https://static.wikia.nocookie.net/blox-fruits/images/5/5e/Light_Fruit_Icon.webp",
+    "Rubber":   "https://static.wikia.nocookie.net/blox-fruits/images/d/d4/Rubber_Fruit_Icon.webp",
+    "Barrier":  "https://static.wikia.nocookie.net/blox-fruits/images/b/b5/Barrier_Fruit_Icon.webp",
+    "Magma":    "https://static.wikia.nocookie.net/blox-fruits/images/0/0c/Magma_Fruit_Icon.webp",
+    "Quake":    "https://static.wikia.nocookie.net/blox-fruits/images/1/14/Quake_Fruit_Icon.webp",
+    "Human":    "https://static.wikia.nocookie.net/blox-fruits/images/4/4e/Human_Fruit_Icon.webp",
+    "Buddha":   "https://static.wikia.nocookie.net/blox-fruits/images/b/b2/Buddha_Fruit_Icon.webp",
+    "Love":     "https://static.wikia.nocookie.net/blox-fruits/images/4/4e/Love_Fruit_Icon.webp",
+    "Spider":   "https://static.wikia.nocookie.net/blox-fruits/images/2/27/Spider_Fruit_Icon.webp",
+    "Sound":    "https://static.wikia.nocookie.net/blox-fruits/images/2/2c/Sound_Fruit_Icon.webp",
+    "Phoenix":  "https://static.wikia.nocookie.net/blox-fruits/images/3/32/Phoenix_Fruit_Icon.webp",
+    "Portal":   "https://static.wikia.nocookie.net/blox-fruits/images/8/8c/Portal_Fruit_Icon.webp",
+    "Paw":      "https://static.wikia.nocookie.net/blox-fruits/images/9/9e/Paw_Fruit_Icon.webp",
+    "Gravity":  "https://static.wikia.nocookie.net/blox-fruits/images/4/4e/Gravity_Fruit_Icon.webp",
+    "Mammoth":  "https://static.wikia.nocookie.net/blox-fruits/images/0/09/Mammoth_Fruit_Icon.webp",
+    "Shadow":   "https://static.wikia.nocookie.net/blox-fruits/images/3/3e/Shadow_Fruit_Icon.webp",
+    "Venom":    "https://static.wikia.nocookie.net/blox-fruits/images/5/5e/Venom_Fruit_Icon.webp",
+    "Control":  "https://static.wikia.nocookie.net/blox-fruits/images/8/8e/Control_Fruit_Icon.webp",
+    "Blizzard": "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Blizzard_Fruit_Icon.webp",
+    "Dragon":   "https://static.wikia.nocookie.net/blox-fruits/images/d/d4/Dragon_Fruit_Icon.webp",
+    "Ghost":    "https://static.wikia.nocookie.net/blox-fruits/images/9/9e/Ghost_Fruit_Icon.webp",
+    "Tiger":    "https://static.wikia.nocookie.net/blox-fruits/images/4/4e/Tiger_Fruit_Icon.webp",
+    "Kitsune":  "https://static.wikia.nocookie.net/blox-fruits/images/5/5e/Kitsune_Fruit_Icon.webp",
+    "T-Rex":    "https://static.wikia.nocookie.net/blox-fruits/images/4/4e/T-Rex_Fruit_Icon.webp",
+    "Creation": "https://static.wikia.nocookie.net/blox-fruits/images/5/52/Creation_Fruit_Icon.webp",
+    "Revive":   "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Revive_Fruit_Icon.webp",
+    "Eagle":    "https://static.wikia.nocookie.net/blox-fruits/images/6/6e/Falcon_Fruit_Icon.webp",
   };
 
-  function getIcon(name) { return FRUIT_ICONS[name] || "🍑"; }
+  function getIcon(name) {
+    const url = FRUIT_IMAGES[name];
+    if (url) {
+      return '<img src="' + url + '" class="fruit-icon" onerror="this.outerHTML=\'<span class=fruit-icon-fallback>🍑</span>\'">';
+    }
+    return '<span class="fruit-icon-fallback">🍑</span>';
+  }
 
   function renderItems(containerId, items, type) {
-    const el = document.getElementById(containerId);
+    var el = document.getElementById(containerId);
     if (!items || items.length === 0) {
       el.innerHTML = '<div class="empty-state">No data available</div>';
       return;
     }
-    const cardClass = type === "mirage" ? "mirage-card" : "normal-card";
-    el.innerHTML = items.map(item =>
-      '<div class="fruit-card ' + cardClass + '">' +
-        '<div class="fruit-icon">' + getIcon(item.name) + '</div>' +
+    var cardClass = type === "mirage" ? "mirage-card" : "normal-card";
+    el.innerHTML = items.map(function(item) {
+      return '<div class="fruit-card ' + cardClass + '">' +
+        getIcon(item.name) +
         '<div class="fruit-name">' + item.name + '</div>' +
         '<div class="fruit-price">' + item.price.toLocaleString() + ' <span class="beli">Beli</span></div>' +
         (type === "mirage" ? '<span class="mirage-badge">MIRAGE</span>' : '') +
-      '</div>'
-    ).join("");
+      '</div>';
+    }).join("");
   }
 
   function renderStock(prefix, stockData) {
