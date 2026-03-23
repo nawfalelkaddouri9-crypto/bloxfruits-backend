@@ -95,6 +95,13 @@
 
     .fruit-icon { width: 64px; height: 64px; object-fit: contain; }
     .fruit-icon-fallback { font-size: 40px; line-height: 1; }
+    .fruit-icon-text {
+      width: 64px; height: 64px;
+      background: var(--border);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: var(--accent);
+    }
     .fruit-name { font-size: 13px; font-weight: 700; }
     .fruit-price { font-size: 12px; color: var(--accent); font-weight: 600; }
     .mirage-card .fruit-price { color: var(--mirage); }
@@ -179,24 +186,42 @@
   const CACHE_KEY = "bloxfruits_stock_v3";
   const REFRESH_MS = 2 * 60 * 1000;
 
+  // Fruits met afbeeldingen — bestandsnaam zonder .webp
   const FRUIT_FILENAMES = {
-    "Kilo": "Kilo", "Bomb": "Bomb", "Spike": "Spike", "Chop": "Chop",
-    "Spring": "Spring", "Rocket": "Rocket", "Spin": "Spin", "Blade": "Blade",
-    "Smoke": "Smoke", "Flame": "Flame", "Falcon": "Falcon", "Ice": "Ice",
-    "Sand": "Sand", "Dark": "Dark", "Diamond": "Diamond", "Light": "Light",
-    "Rubber": "Rubber", "Barrier": "Barrier", "Magma": "Magma", "Quake": "Quake",
-    "Human": "Human", "Buddha": "Buddha", "Love": "Love", "Spider": "Spider",
-    "Sound": "Sound", "Phoenix": "Phoenix", "Portal": "Portal", "Paw": "Paw",
-    "Gravity": "Gravity", "Mammoth": "Mammoth", "Shadow": "Shadow", "Venom": "Venom",
-    "Control": "Control", "Blizzard": "Blizzard", "Dragon": "Dragon", "Ghost": "Ghost",
-    "Tiger": "Tiger", "Kitsune": "Kitsune", "T-Rex": "T-Rex", "Creation": "Creation",
-    "Revive": "Revive", "Eagle": "Eagle",
+    "Blizzard":  "blizzard",
+    "Buddha":    "buddha",
+    "Control":   "control",
+    "Creation":  "creation",
+    "Dough":     "dough",
+    "Dragon":    "dragon",
+    "Gas":       "gas",
+    "Gravity":   "gravity",
+    "Kitsune":   "kitsune",
+    "Lightning": "lightning",
+    "Love":      "love",
+    "Mammoth":   "mammoth",
+    "Pain":      "pain",
+    "Phoenix":   "phoenix",
+    "Portal":    "portal",
+    "Quake":     "quake",
+    "Shadow":    "shadow",
+    "Sound":     "sound",
+    "Spider":    "spider",
+    "Spirit":    "spirit",
+    "Tiger":     "tiger",
+    "T-Rex":     "Trex",
+    "Venom":     "venom",
+    "Yeti":      "yeti",
   };
 
   function getIcon(name) {
-    var filename = FRUIT_FILENAMES[name] || name;
-    return '<img src="/images/' + filename + '.webp" class="fruit-icon" ' +
-           'onerror="this.outerHTML=\'<span class=\\\'fruit-icon-fallback\\\'>🍑</span>\'">';
+    var filename = FRUIT_FILENAMES[name];
+    if (filename) {
+      return '<img src="/images/' + filename + '.webp" class="fruit-icon" ' +
+             'onerror="this.outerHTML=\'<span class=\\\'fruit-icon-fallback\\\'>🍑</span>\'">';
+    }
+    // Geen afbeelding — toon eerste 2 letters als icoon
+    return '<div class="fruit-icon-text">' + name.slice(0, 2) + '</div>';
   }
 
   function renderItems(containerId, items, type) {
