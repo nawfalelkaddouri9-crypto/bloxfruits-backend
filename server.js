@@ -50,7 +50,7 @@ function saveCache(data) {
   } catch (e) {}
 }
 
-let stockState = loadCache();
+let stockState = { current: null, last: null, beforeLast: null, lastUpdated: null };
 
 // ── Firebase FCM ──────────────────────────────────────────────────────────────
 let firebaseApp = null;
