@@ -246,5 +246,3 @@ app.listen(PORT, async () => {
   await fetchAndUpdateStock();
   setInterval(fetchAndUpdateStock, POLL_INTERVAL_MS);
 });
-
-https://bloxfruits-stock-api-xh8c.onrender.com/test-notify
