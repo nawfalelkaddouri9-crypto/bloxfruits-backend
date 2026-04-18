@@ -41,12 +41,13 @@
     }
     #refresh-btn {
       background: var(--accent); color: #000; border: none;
-      border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 700;
+      border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
     }
+    #refresh-btn:hover { opacity: 0.8; }
 
     .history-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tab-btn {
-      flex: 1; padding: 8px; border: 1px solid var(--border);
+      flex: 1; padding: 10px 5px; border: 1px solid var(--border);
       background: var(--surface); color: var(--muted); border-radius: 10px;
       font-size: 12px; font-weight: 700; cursor: pointer; text-align: center;
     }
@@ -55,10 +56,9 @@
     .tab-btn.active-before { background: var(--surface); color: var(--text); border-color: var(--muted); }
 
     .section-label {
-      display: flex; align-items: center; gap: 8px; font-size: 12px;
-      font-weight: 700; text-transform: uppercase; margin: 16px 0 8px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; margin: 16px 0 8px;
+      letter-spacing: 0.5px; color: var(--muted);
     }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
 
     .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 8px; }
 
@@ -95,27 +95,27 @@
 <main>
   <div class="status-bar">
     <div>Last updated: <strong id="last-updated">—</strong></div>
-    <button id="refresh-btn" onclick="loadStock()">↻ Refresh</button>
+    <button id="refresh-btn">↻ Refresh</button>
   </div>
 
   <div class="history-tabs">
-    <div class="tab-btn active-current" onclick="showPanel('current')">🟡 Current</div>
-    <div class="tab-btn" onclick="showPanel('last')">Purple Last</div>
-    <div class="tab-btn" onclick="showPanel('before')">⚫ Before</div>
+    <div class="tab-btn active-current" id="btn-current">🟡 Current</div>
+    <div class="tab-btn" id="btn-last">🟣 Last</div>
+    <div class="tab-btn" id="btn-before">⚫ Before</div>
   </div>
 
   <div id="panel-current" class="stock-panel active">
-    <div class="section-label"><span class="dot"></span> Normal Stock</div>
+    <div class="section-label">Normal Stock</div>
     <div id="current-normal" class="items-grid"><div class="empty-state">Loading...</div></div>
   </div>
 
   <div id="panel-last" class="stock-panel">
-    <div class="section-label"><span class="dot"></span> Normal Stock</div>
+    <div class="section-label">Normal Stock</div>
     <div id="last-normal" class="items-grid"><div class="empty-state">No data yet</div></div>
   </div>
 
   <div id="panel-before" class="stock-panel">
-    <div class="section-label"><span class="dot"></span> Normal Stock</div>
+    <div class="section-label">Normal Stock</div>
     <div id="before-normal" class="items-grid"><div class="empty-state">No data yet</div></div>
   </div>
 </main>
@@ -129,7 +129,7 @@
     }
     el.innerHTML = items.map(item => `
       <div class="fruit-card">
-        <div class="fruit-icon-text">${item.name.slice(0, 2)}</div>
+        <div class="fruit-icon-text">${item.name.slice(0, 2).toUpperCase()}</div>
         <div class="fruit-name">${item.name}</div>
         <div class="fruit-price">${item.price.toLocaleString()} <span class="beli">Beli</span></div>
       </div>
@@ -137,15 +137,25 @@
   }
 
   function showPanel(name) {
+    // Verberg alle panels
     document.querySelectorAll(".stock-panel").forEach(p => p.classList.remove("active"));
     document.getElementById("panel-" + name).classList.add("active");
-    document.querySelectorAll(".tab-btn").forEach(t => t.className = "tab-btn");
-    const map = { current: "active-current", last: "active-last", before: "active-before" };
-    const idx = { current: 0, last: 1, before: 2 };
-    document.querySelectorAll(".tab-btn")[idx[name]].classList.add(map[name]);
+    
+    // Reset alle tabs
+    document.querySelectorAll(".tab-btn").forEach(t => {
+        t.classList.remove("active-current", "active-last", "active-before");
+    });
+    
+    // Zet de juiste tab op actief
+    const btn = document.getElementById("btn-" + name);
+    if(name === 'current') btn.classList.add("active-current");
+    if(name === 'last') btn.classList.add("active-last");
+    if(name === 'before') btn.classList.add("active-before");
   }
 
   async function loadStock() {
+    const btn = document.getElementById("refresh-btn");
+    btn.textContent = "…";
     try {
       const res = await fetch("/api/stock");
       const data = await res.json();
@@ -155,10 +165,22 @@
         renderItems("before-normal", data.beforeLast ? data.beforeLast.normal : []);
         document.getElementById("last-updated").textContent = new Date(data.lastUpdated).toLocaleTimeString();
       }
-    } catch(err) { console.error(err); }
+    } catch(err) { 
+        console.error(err); 
+    } finally {
+        btn.textContent = "↻ Refresh";
+    }
   }
 
+  // Event Listeners voor de knoppen
+  document.getElementById("btn-current").addEventListener("click", () => showPanel('current'));
+  document.getElementById("btn-last").addEventListener("click", () => showPanel('last'));
+  document.getElementById("btn-before").addEventListener("click", () => showPanel('before'));
+  document.getElementById("refresh-btn").addEventListener("click", loadStock);
+
+  // Initial load
   loadStock();
+  // Auto refresh elke 2 minuten
   setInterval(loadStock, 120000);
 </script>
 </body>
