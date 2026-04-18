@@ -43,7 +43,6 @@
       background: var(--accent); color: #000; border: none;
       border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
     }
-    #refresh-btn:hover { opacity: 0.8; }
 
     .history-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
     .tab-btn {
@@ -55,11 +54,7 @@
     .tab-btn.active-last { background: var(--accent3); color: #fff; border-color: var(--accent3); }
     .tab-btn.active-before { background: var(--surface); color: var(--text); border-color: var(--muted); }
 
-    .section-label {
-      font-size: 12px; font-weight: 700; text-transform: uppercase; margin: 16px 0 8px;
-      letter-spacing: 0.5px; color: var(--muted);
-    }
-
+    .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; margin: 16px 0 8px; color: var(--muted); }
     .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 8px; }
 
     .fruit-card {
@@ -70,11 +65,14 @@
     }
     .fruit-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--accent); }
 
+    /* Styling voor de afbeeldingen */
+    .fruit-icon { width: 64px; height: 64px; object-fit: contain; }
     .fruit-icon-text {
       width: 64px; height: 64px; background: var(--border); border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
       font-size: 18px; font-weight: 700; color: var(--accent);
     }
+    
     .fruit-name { font-size: 13px; font-weight: 700; }
     .fruit-price { font-size: 12px; color: var(--accent); font-weight: 600; }
     .beli { font-size: 10px; color: var(--muted); }
@@ -99,9 +97,9 @@
   </div>
 
   <div class="history-tabs">
-    <div class="tab-btn active-current" id="btn-current">🟡 Current</div>
-    <div class="tab-btn" id="btn-last">🟣 Last</div>
-    <div class="tab-btn" id="btn-before">⚫ Before</div>
+    <div class="tab-btn active-current" id="btn-current">Current</div>
+    <div class="tab-btn" id="btn-last">Last</div>
+    <div class="tab-btn" id="btn-before">Before</div>
   </div>
 
   <div id="panel-current" class="stock-panel active">
@@ -121,6 +119,26 @@
 </main>
 
 <script>
+  // Voeg hier de namen van je PNG bestanden toe (zonder .png)
+  const FRUIT_FILENAMES = {
+    "Blizzard": "blizzard", "Buddha": "buddha", "Control": "control",
+    "Dough": "dough", "Dragon": "dragon", "Gravity": "gravity",
+    "Kitsune": "kitsune", "Leopard": "leopard", "Love": "love",
+    "Mammoth": "mammoth", "Phoenix": "phoenix", "Portal": "portal",
+    "Quake": "quake", "Shadow": "shadow", "Sound": "sound",
+    "Spider": "spider", "Spirit": "spirit", "T-Rex": "Trex",
+    "Venom": "venom", "Portal": "portal"
+  };
+
+  function getIcon(name) {
+    const filename = FRUIT_FILENAMES[name];
+    if (filename) {
+      // We gebruiken .png omdat je aangaf dat het PNG foto's zijn
+      return `<img src="/images/${filename}.png" class="fruit-icon" onerror="this.outerHTML='<div class=\'fruit-icon-text\'>${name.slice(0, 2).toUpperCase()}</div>'">`;
+    }
+    return `<div class="fruit-icon-text">${name.slice(0, 2).toUpperCase()}</div>`;
+  }
+
   function renderItems(containerId, items) {
     const el = document.getElementById(containerId);
     if (!items || items.length === 0) {
@@ -129,7 +147,7 @@
     }
     el.innerHTML = items.map(item => `
       <div class="fruit-card">
-        <div class="fruit-icon-text">${item.name.slice(0, 2).toUpperCase()}</div>
+        ${getIcon(item.name)}
         <div class="fruit-name">${item.name}</div>
         <div class="fruit-price">${item.price.toLocaleString()} <span class="beli">Beli</span></div>
       </div>
@@ -137,16 +155,10 @@
   }
 
   function showPanel(name) {
-    // Verberg alle panels
     document.querySelectorAll(".stock-panel").forEach(p => p.classList.remove("active"));
     document.getElementById("panel-" + name).classList.add("active");
+    document.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("active-current", "active-last", "active-before"));
     
-    // Reset alle tabs
-    document.querySelectorAll(".tab-btn").forEach(t => {
-        t.classList.remove("active-current", "active-last", "active-before");
-    });
-    
-    // Zet de juiste tab op actief
     const btn = document.getElementById("btn-" + name);
     if(name === 'current') btn.classList.add("active-current");
     if(name === 'last') btn.classList.add("active-last");
@@ -165,22 +177,16 @@
         renderItems("before-normal", data.beforeLast ? data.beforeLast.normal : []);
         document.getElementById("last-updated").textContent = new Date(data.lastUpdated).toLocaleTimeString();
       }
-    } catch(err) { 
-        console.error(err); 
-    } finally {
-        btn.textContent = "↻ Refresh";
-    }
+    } catch(err) { console.error(err); }
+    finally { btn.textContent = "↻ Refresh"; }
   }
 
-  // Event Listeners voor de knoppen
   document.getElementById("btn-current").addEventListener("click", () => showPanel('current'));
   document.getElementById("btn-last").addEventListener("click", () => showPanel('last'));
   document.getElementById("btn-before").addEventListener("click", () => showPanel('before'));
   document.getElementById("refresh-btn").addEventListener("click", loadStock);
 
-  // Initial load
   loadStock();
-  // Auto refresh elke 2 minuten
   setInterval(loadStock, 120000);
 </script>
 </body>
