@@ -2,33 +2,69 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Blox Fruits Stock</title>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: white; text-align: center; padding: 20px; }
-        .card { background: #1e293b; border-radius: 10px; padding: 20px; max-width: 400px; margin: auto; }
-        .fruit { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #334155; }
-        .price { color: #fbbf24; }
+        :root { --bg: #0d0f1a; --card: #161a27; --accent: #3b82f6; --text: #ffffff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #2d3748; }
+        .stock-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .fruit-card { background: #1e2533; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid var(--accent); }
+        .fruit-name { font-weight: bold; display: block; margin-bottom: 5px; }
+        .fruit-price { color: #fbbf24; font-size: 0.9em; }
+        .status-live { color: #10b981; font-weight: bold; }
+        .update-time { font-size: 0.8em; color: #718096; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>🍎 Normal Stock</h1>
-    <div class="card" id="list">Laden...</div>
-    <p id="time"></p>
+    <div class="container">
+        <div class="header">
+            <h1>Blox Fruits Stock</h1>
+            <div class="status-live">● LIVE</div>
+        </div>
+
+        <div class="card">
+            <h2>Huidige Stock</h2>
+            <div id="stock-list" class="stock-grid">Laden...</div>
+            <div id="last-updated" class="update-time"></div>
+        </div>
+
+        <div class="card" style="opacity: 0.7;">
+            <h3>Vorige Stock</h3>
+            <div id="last-stock-list" class="stock-grid"></div>
+        </div>
+    </div>
 
     <script>
-        async function load() {
-            const res = await fetch('/api/stock');
-            const data = await res.json();
-            if (data.current) {
-                document.getElementById('list').innerHTML = data.current.map(f => 
-                    `<div class="fruit"><span>${f.name}</span><span class="price">$${f.price.toLocaleString()}</span></div>`
-                ).join('');
-                document.getElementById('time').innerText = "Update: " + new Date(data.lastUpdated).toLocaleTimeString();
-            }
+        async function fetchStock() {
+            try {
+                const res = await fetch('/api/stock');
+                const data = await res.json();
+                
+                if (data.current) {
+                    const renderList = (list, elementId) => {
+                        const el = document.getElementById(elementId);
+                        el.innerHTML = list.map(f => `
+                            <div class="fruit-card">
+                                <span class="fruit-name">${f.name}</span>
+                                <span class="fruit-price">$${f.price.toLocaleString()}</span>
+                            </div>
+                        `).join('');
+                    };
+
+                    renderList(data.current, 'stock-list');
+                    if (data.last) renderList(data.last, 'last-stock-list');
+                    
+                    document.getElementById('last-updated').innerText = 
+                        "Laatst bijgewerkt: " + new Date(data.lastUpdated).toLocaleTimeString();
+                }
+            } catch (e) { console.error("Update failed", e); }
         }
-        load();
-        setInterval(load, 30000);
+        fetchStock();
+        setInterval(fetchStock, 30000);
     </script>
 </body>
 </html>
