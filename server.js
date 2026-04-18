@@ -25,46 +25,60 @@ const FRUIT_PRICES = {
 };
 
 function loadCache() {
-  try {
-    if (fs.existsSync(CACHE_FILE)) return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
-  } catch (e) {}
-  return { current: null, last: null, beforeLast: null, lastUpdated: null };
+    try {
+        if (fs.existsSync(CACHE_FILE)) return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+    } catch (e) {}
+    return { current: null, last: null, beforeLast: null, lastUpdated: null };
 }
 
 let stockState = loadCache();
 
 async function fetchFromWiki() {
-  try {
-    const response = await axios.get("https://blox-fruits.fandom.com/api.php?action=parse&page=Blox_Fruits_%22Stock%22&prop=wikitext&format=json", { timeout: 10000 });
-    const wikitext = response.data?.parse?.wikitext?.["*"] || "";
-    const currentMatch = wikitext.match(/\|Current\s*=\s*([^\n|]+)/);
-    if (!currentMatch) return null;
-    const names = currentMatch[1].split(",").map(s => s.trim()).filter(n => FRUIT_PRICES[n]);
-    if (names.length < 3) return null;
-    return names.map(name => ({ name, price: FRUIT_PRICES[name] }));
-  } catch (err) { return null; }
+    console.log("Fetching from Wiki...");
+    try {
+        const response = await axios.get(
+            "https://blox-fruits.fandom.com/api.php?action=parse&page=Blox_Fruits_%22Stock%22&prop=wikitext&format=json",
+            { timeout: 10000, headers: { "User-Agent": "Mozilla/5.0 Tracker/1.0" } }
+        );
+        const wikitext = response.data?.parse?.wikitext?.["*"] || "";
+        const currentMatch = wikitext.match(/\|Current\s*=\s*([^\n|]+)/);
+        
+        if (!currentMatch) return null;
+
+        const fruits = currentMatch[1].split(",")
+            .map(s => s.trim())
+            .filter(name => FRUIT_PRICES[name]); 
+
+        if (fruits.length < 3) return null;
+
+        return fruits.map(name => ({ name, price: FRUIT_PRICES[name] }));
+    } catch (err) {
+        console.error("Wiki fetch error:", err.message);
+        return null;
+    }
 }
 
 async function updateStock() {
-  console.log("Polling stock...");
-  const newNormal = await fetchFromWiki();
-  if (newNormal) {
-    const newStockObj = { normal: newNormal, mirage: [] };
-    if (JSON.stringify(stockState.current) !== JSON.stringify(newStockObj)) {
-      stockState.beforeLast = stockState.last;
-      stockState.last = stockState.current;
-      stockState.current = newStockObj;
-      stockState.lastUpdated = new Date().toISOString();
-      fs.writeFileSync(CACHE_FILE, JSON.stringify(stockState, null, 2));
-      console.log("Stock updated!");
+    const fruits = await fetchFromWiki();
+    
+    if (fruits) {
+        const newStockObj = { normal: fruits, mirage: [] };
+
+        if (JSON.stringify(stockState.current) !== JSON.stringify(newStockObj)) {
+            console.log("New stock found!");
+            stockState.beforeLast = stockState.last;
+            stockState.last = stockState.current;
+            stockState.current = newStockObj;
+            stockState.lastUpdated = new Date().toISOString();
+            fs.writeFileSync(CACHE_FILE, JSON.stringify(stockState, null, 2));
+        }
     }
-  }
 }
 
 app.get("/api/stock", (req, res) => res.json(stockState));
 
 app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
-  await updateStock();
-  setInterval(updateStock, POLL_INTERVAL_MS);
+    console.log(`Server running on port ${PORT}`);
+    await updateStock();
+    setInterval(updateStock, POLL_INTERVAL_MS);
 });
