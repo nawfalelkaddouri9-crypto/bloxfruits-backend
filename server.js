@@ -214,6 +214,28 @@ app.get("/api/debug-fruityblox", async (req, res) => {
   }
 });
 
+// ── Clear cache route ──
+app.post("/api/clear-cache", (req, res) => {
+  try {
+    stockState = { current: null, last: null, beforeLast: null, lastUpdated: null };
+    if (fs.existsSync(CACHE_FILE)) fs.unlinkSync(CACHE_FILE);
+    console.log("[Cache] Cache cleared via API");
+    res.json({ ok: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Force fetch route ──
+app.post("/api/force-fetch", async (req, res) => {
+  try {
+    await updateStock();
+    res.json({ ok: true, message: "Stock fetch completed" });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Start ──────────────────────────────────────────────────────────────────
 app.listen(PORT, async () => {
   console.log(`Server draait op poort ${PORT}`);
