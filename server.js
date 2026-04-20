@@ -21,10 +21,10 @@ const FRUIT_PRICES = {
   "Phoenix": 1800000, "Portal": 1900000, "Rumble": 2100000, "Blizzard": 2400000,
   "Gravity": 2500000, "Mammoth": 2700000, "T-Rex": 2700000, "Dough": 2800000,
   "Shadow": 2900000, "Venom": 3000000, "Control": 3200000, "Spirit": 3400000,
-  "Kitsune": 8000000, "Dragon": 10000000,
-  "Blade": 600000, "Eagle": 650000, "Creation": 3000000,
-  "Lightning": 2000000, "Pain": 2200000, "Gas": 2300000,
-  "Tiger": 2000000, "Yeti": 2100000,
+  "Kitsune": 8000000, "Dragon": 15000000,
+  "Blade": 60000, "Eagle": 650000, "Creation": 1400000,
+  "Lightning": 2100000, "Pain": 2200000, "Gas": 2300000,
+  "Tiger": 5000000, "Yeti": 500000,
 };
 
 function loadCache() {
