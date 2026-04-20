@@ -157,6 +157,7 @@
     <div class="tab-btn active-current" onclick="showPanel('current')">🟡 Current</div>
     <div class="tab-btn" onclick="showPanel('last')">🟣 Last</div>
     <div class="tab-btn" onclick="showPanel('before')">⚫ Before</div>
+    <div class="tab-btn" onclick="window.location.href='/status.html'" style="background:var(--accent3);color:#fff;border-color:var(--accent3);">⚙ Status</div>
   </div>
 
   <div id="panel-current" class="stock-panel active">
@@ -265,7 +266,7 @@
     tabs.forEach(function(t) { t.className = "tab-btn"; });
     var map = { current: "active-current", last: "active-last", before: "active-before" };
     var idx = { current: 0, last: 1, before: 2 };
-    tabs[idx[name]].classList.add(map[name]);
+    if (idx[name] !== undefined) tabs[idx[name]].classList.add(map[name]);
   }
 
   async function loadStock() {
