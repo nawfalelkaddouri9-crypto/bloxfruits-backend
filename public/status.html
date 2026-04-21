@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>System Status — Blox Fruits Stock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #030508; --surface: #080d14; --card: #0b1220; --border: #0f2a3a;
+      --cyan: #00f5ff; --cyan-dim: #00a8b5; --green: #00ff88; --green-dim: #00aa55;
+      --red: #ff3366; --yellow: #ffcc00; --purple: #bf5fff; --orange: #ff9500;
+      --text: #c8e6f0; --muted: #3a6070;
+      --mono: 'Share Tech Mono', monospace; --display: 'Orbitron', sans-serif;
+    }
+    html, body { min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--mono); overflow-x: hidden; }
+    body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,245,255,0.015) 2px,rgba(0,245,255,0.015) 4px); pointer-events:none; z-index:1000; }
+    body::after { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(0,245,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,255,0.03) 1px,transparent 1px); background-size:40px 40px; pointer-events:none; z-index:0; }
+
+    /* ── OFFLINE BANNER ── */
+    #offline-banner {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 2000;
+      background: linear-gradient(90deg, #1a0008, #2d0010, #1a0008);
+      border-bottom: 2px solid var(--red);
+      padding: 10px 16px; text-align: center;
+      font-family: var(--display); font-size: 11px; letter-spacing: 3px; color: var(--red);
+      animation: offline-pulse 1.5s ease-in-out infinite;
+    }
+    #offline-banner.visible { display: block; }
+    @keyframes offline-pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    body.has-offline-banner header { margin-top: 40px; }
+
+    /* ── STOCK CHANGE ALERT ── */
+    #stock-alert {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 1999;
+      background: linear-gradient(90deg, #001a0a, #00331a, #001a0a);
+      border-bottom: 2px solid var(--green);
+      padding: 10px 16px;
+      font-family: var(--mono); font-size: 11px; color: var(--green);
+      transition: all 0.3s;
+    }
+    #stock-alert.visible { display: flex; align-items: center; gap: 10px; }
+    #stock-alert.has-offline { top: 40px; }
+    .stock-alert-label { font-family: var(--display); font-size: 9px; letter-spacing: 2px; flex-shrink: 0; }
+    .stock-alert-fruits { flex: 1; font-size: 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .stock-alert-close { cursor: pointer; font-size: 14px; flex-shrink: 0; opacity: 0.7; }
+    .stock-alert-close:hover { opacity: 1; }
+
+    header {
+      position: sticky; top: 0; z-index: 10;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+      background: linear-gradient(180deg, rgba(0,245,255,0.05) 0%, transparent 100%);
+      backdrop-filter: blur(10px);
+    }
+    .back-btn { background:transparent; border:1px solid var(--cyan-dim); color:var(--cyan); font-family:var(--mono); font-size:11px; padding:6px 12px; border-radius:4px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition:all 0.2s; letter-spacing:1px; }
+    .back-btn:hover { background:rgba(0,245,255,0.1); box-shadow:0 0 12px rgba(0,245,255,0.3); }
+    header h1 { font-family:var(--display); font-size:14px; font-weight:700; letter-spacing:3px; color:var(--cyan); text-shadow:0 0 20px rgba(0,245,255,0.5); }
+    .header-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .header-time { font-size:11px; color:var(--muted); letter-spacing:1px; }
+
+    /* ── COUNTDOWN TIMER ── */
+    .countdown-pill {
+      background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+      padding: 4px 10px; display: flex; align-items: center; gap: 6px; font-size: 10px;
+    }
+    .countdown-label { color: var(--muted); font-size: 9px; letter-spacing: 1px; }
+    .countdown-value { color: var(--cyan); font-family: var(--display); font-size: 10px; min-width: 24px; text-align: center; }
+    .countdown-bar-wrap { width: 40px; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .countdown-bar { height: 100%; border-radius: 2px; background: var(--cyan); transition: width 1s linear, background 1s; }
+
+    main { position:relative; z-index:10; max-width:600px; margin:0 auto; padding:20px 14px 40px; }
+
+    /* ── CHIP ── */
+    .chip-container { display:flex; justify-content:center; margin-bottom:28px; }
+    .chip { position:relative; width:220px; height:220px; }
+    .chip-body { position:absolute; inset:30px; background:linear-gradient(135deg,#0b1a28 0%,#060e18 100%); border:2px solid var(--cyan-dim); border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; animation:pulse-glow 3s ease-in-out infinite; }
+    .chip-label { font-family:var(--display); font-size:8px; letter-spacing:3px; color:var(--cyan-dim); }
+    .chip-status-text { font-family:var(--display); font-size:22px; font-weight:900; color:var(--cyan); text-shadow:0 0 20px rgba(0,245,255,0.8); }
+    .chip-sub { font-size:9px; color:var(--muted); letter-spacing:2px; }
+    .chip-uptime { font-size:10px; color:var(--green); margin-top:4px; letter-spacing:1px; }
+    .chip-pins { position:absolute; inset:0; }
+    .pin { position:absolute; background:var(--cyan-dim); border-radius:1px; }
+    .pin-top,.pin-bottom { width:8px; height:16px; }
+    .pin-left,.pin-right { width:16px; height:8px; }
+    .corner { position:absolute; width:14px; height:14px; border-color:var(--cyan); border-style:solid; }
+    .corner-tl { top:26px; left:26px; border-width:2px 0 0 2px; }
+    .corner-tr { top:26px; right:26px; border-width:2px 2px 0 0; }
+    .corner-bl { bottom:26px; left:26px; border-width:0 0 2px 2px; }
+    .corner-br { bottom:26px; right:26px; border-width:0 2px 2px 0; }
+    .chip-ring { position:absolute; inset:10px; border-radius:50%; border:1px solid transparent; border-top-color:rgba(0,245,255,0.3); border-bottom-color:rgba(0,245,255,0.1); animation:spin 4s linear infinite; }
+    .chip-ring-2 { position:absolute; inset:18px; border-radius:50%; border:1px solid transparent; border-left-color:rgba(0,245,255,0.2); animation:spin 7s linear infinite reverse; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    @keyframes pulse-glow { 0%,100%{box-shadow:0 0 40px rgba(0,245,255,0.15),inset 0 0 30px rgba(0,245,255,0.05)} 50%{box-shadow:0 0 60px rgba(0,245,255,0.3),inset 0 0 40px rgba(0,245,255,0.1)} }
+
+    /* ── SECTION LABEL ── */
+    .section-label { font-family:var(--display); font-size:9px; letter-spacing:4px; color:var(--cyan-dim); text-transform:uppercase; margin-bottom:10px; padding-left:4px; display:flex; align-items:center; gap:8px; }
+    .section-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,var(--border),transparent); }
+
+    /* ── STATS ROW ── */
+    .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:20px; }
+    .stat-box { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:12px 10px; text-align:center; }
+    .stat-value { font-family:var(--display); font-size:18px; font-weight:700; color:var(--cyan); text-shadow:0 0 10px rgba(0,245,255,0.4); margin-bottom:4px; }
+    .stat-label { font-size:8px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+
+    /* ── STATUS CARDS ── */
+    .status-grid { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+    .status-card { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:12px 14px; display:flex; align-items:center; gap:12px; position:relative; overflow:hidden; transition:border-color 0.3s; }
+    .status-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; }
+    .status-card.ok::before { background:var(--green); box-shadow:0 0 8px var(--green); }
+    .status-card.warn::before { background:var(--yellow); box-shadow:0 0 8px var(--yellow); }
+    .status-card.err::before { background:var(--red); box-shadow:0 0 8px var(--red); }
+    .status-card.info::before { background:var(--cyan); box-shadow:0 0 8px var(--cyan); }
+    .status-card.ok { border-color:rgba(0,255,136,0.15); }
+    .status-card.warn { border-color:rgba(255,204,0,0.15); }
+    .status-card.err { border-color:rgba(255,51,102,0.15); }
+    .status-card.info { border-color:rgba(0,245,255,0.15); }
+    .status-icon { width:36px; height:36px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .status-card.ok .status-icon { background:rgba(0,255,136,0.1); }
+    .status-card.warn .status-icon { background:rgba(255,204,0,0.1); }
+    .status-card.err .status-icon { background:rgba(255,51,102,0.1); }
+    .status-card.info .status-icon { background:rgba(0,245,255,0.1); }
+    .status-info { flex:1; min-width:0; }
+    .status-name { font-family:var(--display); font-size:10px; letter-spacing:2px; color:var(--text); margin-bottom:2px; }
+    .status-detail { font-size:10px; color:var(--muted); }
+    /* Response time mini-bar */
+    .resp-bar { margin-top:5px; display:flex; align-items:center; gap:6px; }
+    .resp-bar-track { flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+    .resp-bar-fill { height:100%; border-radius:2px; transition:width 0.5s; }
+    .resp-bar-label { font-size:9px; color:var(--muted); min-width:36px; text-align:right; }
+    .status-badge { font-family:var(--display); font-size:8px; letter-spacing:2px; padding:4px 8px; border-radius:3px; flex-shrink:0; }
+    .badge-ok { background:rgba(0,255,136,0.15); color:var(--green); border:1px solid rgba(0,255,136,0.3); }
+    .badge-warn { background:rgba(255,204,0,0.15); color:var(--yellow); border:1px solid rgba(255,204,0,0.3); }
+    .badge-err { background:rgba(255,51,102,0.15); color:var(--red); border:1px solid rgba(255,51,102,0.3); }
+    .badge-info { background:rgba(0,245,255,0.15); color:var(--cyan); border:1px solid rgba(0,245,255,0.3); }
+
+    /* ── SOURCE CARD WITH RESET BTN ── */
+    .source-actions { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+    .reset-btn { background:transparent; border:1px solid var(--border); color:var(--muted); font-family:var(--mono); font-size:9px; padding:3px 7px; border-radius:3px; cursor:pointer; transition:all 0.2s; display:none; }
+    .reset-btn:hover { border-color:var(--cyan-dim); color:var(--cyan); }
+    .status-card.warn .reset-btn, .status-card.err .reset-btn { display:block; }
+
+    /* ── TOKEN CARD ── */
+    .token-card { background:var(--card); border:1px solid rgba(0,245,255,0.15); border-radius:6px; padding:12px 14px; margin-bottom:8px; position:relative; overflow:hidden; }
+    .token-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--cyan); box-shadow:0 0 8px var(--cyan); }
+    .token-row { display:flex; align-items:center; gap:10px; }
+    .token-icon { width:36px; height:36px; border-radius:6px; background:rgba(0,245,255,0.1); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .token-info { flex:1; }
+    .token-name { font-family:var(--display); font-size:10px; letter-spacing:2px; color:var(--text); margin-bottom:2px; }
+    .token-detail { font-size:10px; color:var(--muted); }
+    .token-actions { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+    .token-refresh-btn { background:transparent; border:1px solid var(--cyan-dim); color:var(--cyan); font-family:var(--mono); font-size:9px; padding:4px 8px; border-radius:3px; cursor:pointer; transition:all 0.2s; letter-spacing:1px; }
+    .token-refresh-btn:hover { background:rgba(0,245,255,0.1); }
+    .token-age-bar { margin-top:10px; }
+    .token-age-label { display:flex; justify-content:space-between; font-size:9px; color:var(--muted); margin-bottom:4px; }
+    .token-bar-track { height:4px; background:var(--border); border-radius:2px; overflow:hidden; }
+    .token-bar-fill { height:100%; border-radius:2px; transition:width 0.5s ease,background 0.5s ease; }
+
+    /* ── NOTIFICATIONS PANEL ── */
+    .notif-panel { background:var(--card); border:1px solid rgba(191,95,255,0.2); border-radius:6px; overflow:hidden; margin-bottom:20px; }
+    .notif-header { background:rgba(191,95,255,0.06); border-bottom:1px solid rgba(191,95,255,0.15); padding:10px 14px; font-family:var(--display); font-size:9px; letter-spacing:3px; color:var(--purple); display:flex; align-items:center; gap:8px; }
+    .notif-body { padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+    .notif-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .notif-info { flex:1; }
+    .notif-name { font-family:var(--display); font-size:10px; letter-spacing:2px; color:var(--text); margin-bottom:2px; }
+    .notif-desc { font-size:10px; color:var(--muted); }
+    .notif-status { font-size:9px; color:var(--muted); }
+    .notif-status.granted { color:var(--green); }
+    .notif-status.denied { color:var(--red); }
+
+    /* ── TOGGLE ── */
+    .toggle { position:relative; width:44px; height:22px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:#0f2030; border:1px solid var(--border); border-radius:22px; cursor:pointer; transition:all 0.3s; }
+    .toggle-slider::before { content:''; position:absolute; width:16px; height:16px; left:2px; top:2px; background:var(--muted); border-radius:50%; transition:all 0.3s; }
+    .toggle input:checked + .toggle-slider { background:rgba(0,255,136,0.15); border-color:var(--green-dim); box-shadow:0 0 10px rgba(0,255,136,0.3); }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(22px); background:var(--green); box-shadow:0 0 8px var(--green); }
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:12px 14px; margin-bottom:8px; }
+    .toggle-info { flex:1; }
+    .toggle-name { font-family:var(--display); font-size:10px; letter-spacing:2px; color:var(--text); margin-bottom:2px; }
+    .toggle-desc { font-size:10px; color:var(--muted); }
+
+    /* ── RENDER PANEL ── */
+    .render-panel { background:var(--card); border:1px solid rgba(191,95,255,0.25); border-radius:6px; overflow:hidden; margin-bottom:20px; }
+    .render-header { background:rgba(191,95,255,0.08); border-bottom:1px solid rgba(191,95,255,0.2); padding:10px 14px; font-family:var(--display); font-size:9px; letter-spacing:3px; color:var(--purple); display:flex; align-items:center; gap:8px; justify-content:space-between; }
+    .render-status-dot { width:7px; height:7px; border-radius:50%; background:var(--muted); display:inline-block; margin-right:4px; }
+    .render-status-dot.configured { background:var(--green); box-shadow:0 0 6px var(--green); animation:blink 2s ease-in-out infinite; }
+    .render-body { padding:12px 14px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .render-btn { background:transparent; border:1px solid rgba(191,95,255,0.35); color:var(--purple); font-family:var(--mono); font-size:11px; letter-spacing:1px; padding:12px 10px; border-radius:4px; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px; transition:all 0.2s; text-align:center; }
+    .render-btn:hover { background:rgba(191,95,255,0.1); box-shadow:0 0 16px rgba(191,95,255,0.2); }
+    .render-btn:disabled { opacity:0.35; cursor:not-allowed; }
+    .render-btn-icon { font-size:20px; }
+    .render-btn-label { font-size:10px; font-family:var(--display); letter-spacing:2px; }
+    .render-btn-desc { font-size:9px; color:var(--muted); letter-spacing:0; font-family:var(--mono); }
+    .render-not-configured { padding:14px; font-size:10px; color:var(--muted); text-align:center; line-height:1.8; }
+    .render-not-configured a { color:var(--cyan); text-decoration:none; }
+
+    /* ── TERMINAL ── */
+    .terminal { background:#040810; border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:20px; }
+    .terminal-bar { background:#080d14; border-bottom:1px solid var(--border); padding:8px 12px; display:flex; align-items:center; gap:8px; }
+    .terminal-dot { width:8px; height:8px; border-radius:50%; }
+    .dot-red{background:#ff3366} .dot-yellow{background:#ffcc00} .dot-green{background:#00ff88}
+    .terminal-title { font-family:var(--display); font-size:8px; letter-spacing:3px; color:var(--muted); margin-left:4px; }
+    .terminal-body { padding:12px; max-height:200px; overflow-y:auto; font-size:10px; line-height:1.8; }
+    .terminal-body::-webkit-scrollbar { width:4px; }
+    .terminal-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    .log-line { display:flex; gap:8px; }
+    .log-time { color:var(--muted); flex-shrink:0; }
+    .log-ok{color:var(--green)} .log-warn{color:var(--yellow)} .log-err{color:var(--red)} .log-info{color:var(--cyan)}
+    .cursor { display:inline-block; width:7px; height:11px; background:var(--cyan); animation:blink 1s step-end infinite; vertical-align:middle; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── DANGER ZONE ── */
+    .danger-zone { border:1px solid rgba(255,51,102,0.3); border-radius:6px; overflow:hidden; margin-bottom:20px; }
+    .danger-header { background:rgba(255,51,102,0.08); border-bottom:1px solid rgba(255,51,102,0.2); padding:10px 14px; font-family:var(--display); font-size:9px; letter-spacing:3px; color:var(--red); display:flex; align-items:center; gap:8px; }
+    .danger-body { padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+    .danger-btn { background:transparent; border:1px solid rgba(255,51,102,0.4); color:var(--red); font-family:var(--mono); font-size:11px; letter-spacing:1px; padding:10px 16px; border-radius:4px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:all 0.2s; text-align:left; }
+    .danger-btn:hover { background:rgba(255,51,102,0.1); box-shadow:0 0 16px rgba(255,51,102,0.2); }
+    .danger-btn-desc { font-size:9px; color:var(--muted); display:block; margin-top:2px; letter-spacing:0; }
+
+    /* ── MODALS ── */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:500; align-items:center; justify-content:center; }
+    .modal-overlay.visible { display:flex; }
+    .modal { background:var(--card); border-radius:8px; padding:24px 20px; max-width:320px; width:90%; text-align:center; }
+    .modal.danger-modal { border:1px solid var(--red); box-shadow:0 0 40px rgba(255,51,102,0.3); }
+    .modal.render-modal { border:1px solid var(--purple); box-shadow:0 0 40px rgba(191,95,255,0.3); }
+    .modal-icon { font-size:32px; margin-bottom:12px; }
+    .modal-title { font-family:var(--display); font-size:12px; letter-spacing:3px; margin-bottom:8px; }
+    .danger-modal .modal-title { color:var(--red); }
+    .render-modal .modal-title { color:var(--purple); }
+    .modal-text { font-size:11px; color:var(--muted); margin-bottom:20px; line-height:1.6; }
+    .modal-btns { display:flex; gap:10px; }
+    .modal-cancel { flex:1; padding:10px; background:transparent; border:1px solid var(--border); color:var(--muted); font-family:var(--mono); font-size:11px; border-radius:4px; cursor:pointer; }
+    .modal-confirm { flex:1; padding:10px; font-family:var(--mono); font-size:11px; border-radius:4px; cursor:pointer; }
+    .danger-modal .modal-confirm { background:rgba(255,51,102,0.15); border:1px solid var(--red); color:var(--red); }
+    .render-modal .modal-confirm { background:rgba(191,95,255,0.15); border:1px solid var(--purple); color:var(--purple); }
+
+    /* ── TOAST ── */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 20px; font-size:11px; color:var(--text); z-index:600; transition:transform 0.3s ease,opacity 0.3s ease; opacity:0; white-space:nowrap; }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+    .toast.ok { border-color:rgba(0,255,136,0.4); color:var(--green); }
+    .toast.err { border-color:rgba(255,51,102,0.4); color:var(--red); }
+    .toast.warn { border-color:rgba(255,204,0,0.4); color:var(--yellow); }
+
+    .loading-pulse { animation:loading 1.5s ease-in-out infinite; }
+    @keyframes loading { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  </style>
+</head>
+<body>
+
+<!-- OFFLINE BANNER -->
+<div id="offline-banner">⚠ SERVER UNREACHABLE — SHOWING LAST KNOWN STATE</div>
+
+<!-- STOCK CHANGE ALERT -->
+<div id="stock-alert">
+  <span class="stock-alert-label">🟢 STOCK CHANGED</span>
+  <span class="stock-alert-fruits" id="stock-alert-text">—</span>
+  <span class="stock-alert-close" onclick="dismissStockAlert()">✕</span>
+</div>
+
+<header>
+  <a href="/" class="back-btn">← BACK</a>
+  <h1>SYS://STATUS</h1>
+  <div class="header-right">
+    <!-- COUNTDOWN TIMER -->
+    <div class="countdown-pill" title="Next auto-refresh">
+      <span class="countdown-label">NEXT</span>
+      <span class="countdown-value" id="countdown-val">30s</span>
+      <div class="countdown-bar-wrap">
+        <div class="countdown-bar" id="countdown-bar" style="width:100%"></div>
+      </div>
+    </div>
+    <div class="header-time" id="header-clock">--:--:--</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- CHIP -->
+  <div class="chip-container">
+    <div class="chip">
+      <div class="chip-ring"></div><div class="chip-ring-2"></div>
+      <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+      <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+      <div class="chip-pins" id="chip-pins"></div>
+      <div class="chip-body">
+        <div class="chip-label">BLXFRT-NODE</div>
+        <div class="chip-status-text" id="chip-status-text">—</div>
+        <div class="chip-sub" id="chip-sub">INITIALIZING</div>
+        <div class="chip-uptime" id="chip-uptime">UPTIME: —</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-value" id="stat-uptime">—</div><div class="stat-label">Uptime (s)</div></div>
+    <div class="stat-box"><div class="stat-value" id="stat-fruits">—</div><div class="stat-label">Fruits Live</div></div>
+    <div class="stat-box"><div class="stat-value" id="stat-updated">—</div><div class="stat-label">Mins Ago</div></div>
+  </div>
+
+  <!-- DATA SOURCES -->
+  <div class="section-label">DATA SOURCES</div>
+  <div class="status-grid" id="sources-grid">
+    <div class="status-card info">
+      <div class="status-icon">⚡</div>
+      <div class="status-info">
+        <div class="status-name">FRUITYBLOX</div>
+        <div class="status-detail loading-pulse">Checking connection...</div>
+        <div class="resp-bar" id="fb-resp-bar" style="display:none">
+          <div class="resp-bar-track"><div class="resp-bar-fill" id="fb-resp-fill" style="width:0%"></div></div>
+          <span class="resp-bar-label" id="fb-resp-label">—</span>
+        </div>
+      </div>
+      <div class="source-actions">
+        <span class="status-badge badge-info">CHECKING</span>
+        <button class="reset-btn" onclick="resetSource('fruityblox')">↺ RESET</button>
+      </div>
+    </div>
+    <div class="status-card info">
+      <div class="status-icon">📖</div>
+      <div class="status-info">
+        <div class="status-name">FANDOM WIKI</div>
+        <div class="status-detail loading-pulse">Standby (fallback)...</div>
+        <div class="resp-bar" id="wiki-resp-bar" style="display:none">
+          <div class="resp-bar-track"><div class="resp-bar-fill" id="wiki-resp-fill" style="width:0%"></div></div>
+          <span class="resp-bar-label" id="wiki-resp-label">—</span>
+        </div>
+      </div>
+      <div class="source-actions">
+        <span class="status-badge badge-info">STANDBY</span>
+        <button class="reset-btn" onclick="resetSource('wiki')">↺ RESET</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOKEN INFO -->
+  <div class="section-label">API TOKEN</div>
+  <div class="token-card">
+    <div class="token-row">
+      <div class="token-icon">🔑</div>
+      <div class="token-info">
+        <div class="token-name">FRUITYBLOX NEXT-ACTION TOKEN</div>
+        <div class="token-detail" id="token-value">Fetching...</div>
+      </div>
+      <div class="token-actions">
+        <span class="status-badge badge-info" id="token-badge">—</span>
+        <button class="token-refresh-btn" onclick="refreshToken()">↺ REFRESH</button>
+      </div>
+    </div>
+    <div class="token-age-bar">
+      <div class="token-age-label"><span>TOKEN AGE</span><span id="token-age-text">—</span></div>
+      <div class="token-bar-track"><div class="token-bar-fill" id="token-bar-fill" style="width:0%;background:var(--green)"></div></div>
+    </div>
+  </div>
+
+  <!-- SYSTEM CHECKS -->
+  <div class="section-label">SYSTEM CHECKS</div>
+  <div class="status-grid" id="checks-grid">
+    <div class="status-card info"><div class="status-icon">🖥</div><div class="status-info"><div class="status-name">SERVER PROCESS</div><div class="status-detail loading-pulse">Loading...</div></div><span class="status-badge badge-info">—</span></div>
+    <div class="status-card info"><div class="status-icon">💾</div><div class="status-info"><div class="status-name">STOCK CACHE</div><div class="status-detail loading-pulse">Loading...</div></div><span class="status-badge badge-info">—</span></div>
+    <div class="status-card info"><div class="status-icon">🔄</div><div class="status-info"><div class="status-name">AUTO-REFRESH</div><div class="status-detail">Every 2 minutes</div></div><span class="status-badge badge-ok">ACTIVE</span></div>
+    <div class="status-card info"><div class="status-icon">🌐</div><div class="status-info"><div class="status-name">API ENDPOINT</div><div class="status-detail">/api/stock</div></div><span class="status-badge badge-ok">ONLINE</span></div>
+  </div>
+
+  <!-- NOTIFICATIONS -->
+  <div class="section-label">ALERTS & NOTIFICATIONS</div>
+  <div class="notif-panel">
+    <div class="notif-header">🔔 ALERT SETTINGS</div>
+    <div class="notif-body">
+      <div class="notif-row">
+        <div class="notif-info">
+          <div class="notif-name">SOUND ALERTS</div>
+          <div class="notif-desc">Beep when source degrades or goes offline</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="toggle-sound" checked onchange="savePref()"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="notif-row">
+        <div class="notif-info">
+          <div class="notif-name">PUSH NOTIFICATIONS</div>
+          <div class="notif-desc">Phone alert when source status changes</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="notif-status" id="notif-perm-label">—</span>
+          <label class="toggle"><input type="checkbox" id="toggle-push" onchange="handlePushToggle()"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="notif-row">
+        <div class="notif-info">
+          <div class="notif-name">STOCK CHANGE ALERTS</div>
+          <div class="notif-desc">Show banner + notify when fruits change</div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="toggle-stockalert" checked onchange="savePref()"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- FALLBACK CONFIG -->
+  <div class="section-label">FALLBACK CONFIG</div>
+  <div class="toggle-row">
+    <div class="toggle-info"><div class="toggle-name">WIKI FALLBACK</div><div class="toggle-desc">Activates when FruityBlox fails</div></div>
+    <label class="toggle"><input type="checkbox" id="toggle-wiki" checked><span class="toggle-slider"></span></label>
+  </div>
+  <div class="toggle-row">
+    <div class="toggle-info"><div class="toggle-name">AUTO-POLL</div><div class="toggle-desc">Automatic stock refresh every 2 min</div></div>
+    <label class="toggle"><input type="checkbox" id="toggle-poll" checked><span class="toggle-slider"></span></label>
+  </div>
+
+  <!-- RENDER CONTROLS -->
+  <div class="section-label">RENDER CONTROLS</div>
+  <div class="render-panel">
+    <div class="render-header">
+      <span>⬡ RENDER.COM — SERVICE MANAGEMENT</span>
+      <span><span class="render-status-dot" id="render-dot"></span><span id="render-config-label" style="font-size:9px">CHECKING...</span></span>
+    </div>
+    <div id="render-not-configured" class="render-not-configured" style="display:none">
+      ⚠ Render API not configured.<br>Add <span style="color:var(--cyan)">RENDER_API_KEY</span> and <span style="color:var(--cyan)">RENDER_SERVICE_ID</span><br>
+      to your <a href="https://dashboard.render.com" target="_blank">Render environment variables</a>.
+    </div>
+    <div class="render-body" id="render-buttons" style="display:none">
+      <button class="render-btn" id="btn-restart" onclick="confirmRender('restart','RESTART SERVER','This will restart the Node.js process on Render. Takes ~10 seconds.',doRestart)">
+        <span class="render-btn-icon">🔁</span><span class="render-btn-label">RESTART</span><span class="render-btn-desc">Restart server process</span>
+      </button>
+      <button class="render-btn" id="btn-redeploy" onclick="confirmRender('redeploy','TRIGGER REDEPLOY','This will trigger a full redeploy from the latest commit. Takes 1-3 minutes.',doRedeploy)">
+        <span class="render-btn-icon">🚀</span><span class="render-btn-label">REDEPLOY</span><span class="render-btn-desc">Deploy latest commit</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- LOG TERMINAL -->
+  <div class="section-label">SYSTEM LOG</div>
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div>
+      <div class="terminal-title">STDOUT — LIVE FEED</div>
+    </div>
+    <div class="terminal-body" id="terminal-body">
+      <div class="log-line"><span class="log-time">--:--:--</span><span class="log-info">Initializing status panel...</span></div>
+    </div>
+  </div>
+
+  <!-- DANGER ZONE -->
+  <div class="section-label">DANGER ZONE</div>
+  <div class="danger-zone">
+    <div class="danger-header">⚠ DESTRUCTIVE ACTIONS</div>
+    <div class="danger-body">
+      <button class="danger-btn" onclick="confirmAction('cache','CLEAR CACHE','Deletes stock_cache.json. Current/Last/Before history will be lost.',clearCache)">
+        <span>🗑</span><span>CLEAR STOCK CACHE<span class="danger-btn-desc">Deletes cached stock history — triggers fresh fetch</span></span>
+      </button>
+      <button class="danger-btn" onclick="confirmAction('fetch','FORCE FETCH','Immediately triggers a stock fetch bypassing the 2-min timer.',forceFetch)">
+        <span>⚡</span><span>FORCE FETCH NOW<span class="danger-btn-desc">Bypasses the 2-min timer and fetches immediately</span></span>
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<!-- DANGER MODAL -->
+<div class="modal-overlay" id="modal-danger">
+  <div class="modal danger-modal">
+    <div class="modal-icon" id="d-modal-icon">⚠️</div>
+    <div class="modal-title" id="d-modal-title">CONFIRM ACTION</div>
+    <div class="modal-text" id="d-modal-text">Are you sure?</div>
+    <div class="modal-btns"><button class="modal-cancel" onclick="closeModals()">CANCEL</button><button class="modal-confirm" onclick="runDangerConfirmed()">CONFIRM</button></div>
+  </div>
+</div>
+
+<!-- RENDER MODAL -->
+<div class="modal-overlay" id="modal-render">
+  <div class="modal render-modal">
+    <div class="modal-icon" id="r-modal-icon">⬡</div>
+    <div class="modal-title" id="r-modal-title">CONFIRM</div>
+    <div class="modal-text" id="r-modal-text">Are you sure?</div>
+    <div class="modal-btns"><button class="modal-cancel" onclick="closeModals()">CANCEL</button><button class="modal-confirm" onclick="runRenderConfirmed()">CONFIRM</button></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.BACKEND_URL || "";
+let pendingDangerAction = null, pendingRenderAction = null;
+const REFRESH_INTERVAL_S = 30;
+let countdownSec = REFRESH_INTERVAL_S;
+let countdownTimer = null;
+let lastKnownStock = null;
+let lastSourceStates = { fruityblox: null, wiki: null };
+let serverWasOffline = false;
+
+// ── Prefs ──
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem("blxstatus_prefs") || "{}"); } catch(e) { return {}; }
+}
+function savePref() {
+  const prefs = {
+    sound: document.getElementById("toggle-sound").checked,
+    stockAlert: document.getElementById("toggle-stockalert").checked,
+  };
+  localStorage.setItem("blxstatus_prefs", JSON.stringify(prefs));
+}
+function applyPrefs() {
+  const p = loadPrefs();
+  if (p.sound !== undefined) document.getElementById("toggle-sound").checked = p.sound;
+  if (p.stockAlert !== undefined) document.getElementById("toggle-stockalert").checked = p.stockAlert;
+}
+
+// ── Sound alerts ──
+function playAlert(type = "warn") {
+  if (!document.getElementById("toggle-sound").checked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const sequences = {
+      warn: [{ f: 880, d: 0.1 }, { f: 660, d: 0.15 }],
+      err:  [{ f: 440, d: 0.1 }, { f: 330, d: 0.1 }, { f: 220, d: 0.2 }],
+      ok:   [{ f: 660, d: 0.08 }, { f: 880, d: 0.12 }],
+    };
+    let t = ctx.currentTime;
+    for (const note of (sequences[type] || sequences.warn)) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = note.f;
+      osc.type = "square";
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + note.d);
+      osc.start(t); osc.stop(t + note.d);
+      t += note.d + 0.03;
+    }
+  } catch(e) {}
+}
+
+// ── Push notifications ──
+function updatePushLabel() {
+  const label = document.getElementById("notif-perm-label");
+  const toggle = document.getElementById("toggle-push");
+  if (!("Notification" in window)) {
+    label.textContent = "NOT SUPPORTED";
+    toggle.disabled = true;
+    return;
+  }
+  if (Notification.permission === "granted") {
+    label.textContent = "GRANTED";
+    label.className = "notif-status granted";
+    toggle.checked = true;
+  } else if (Notification.permission === "denied") {
+    label.textContent = "DENIED";
+    label.className = "notif-status denied";
+    toggle.checked = false;
+  } else {
+    label.textContent = "NOT YET";
+    label.className = "notif-status";
+  }
+}
+
+async function handlePushToggle() {
+  if (!("Notification" in window)) return;
+  if (document.getElementById("toggle-push").checked) {
+    const perm = await Notification.requestPermission();
+    updatePushLabel();
+    if (perm === "granted") {
+      showToast("✓ Push notifications enabled", "ok");
+      addLog("ok", "[Notif] Push notifications granted");
+    } else {
+      document.getElementById("toggle-push").checked = false;
+      showToast("✗ Notification permission denied", "err");
+      addLog("warn", "[Notif] Push notification permission denied");
+    }
+  }
+}
+
+function sendPushNotification(title, body, icon = "🍎") {
+  if (!document.getElementById("toggle-push")?.checked) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    new Notification(`${icon} ${title}`, { body, silent: false });
+  } catch(e) {}
+}
+
+// ── Clock ──
+function updateClock() {
+  document.getElementById("header-clock").textContent = new Date().toTimeString().slice(0,8);
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Countdown timer ──
+function startCountdown() {
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownSec = REFRESH_INTERVAL_S;
+  countdownTimer = setInterval(() => {
+    countdownSec--;
+    if (countdownSec < 0) countdownSec = REFRESH_INTERVAL_S;
+    const el = document.getElementById("countdown-val");
+    const bar = document.getElementById("countdown-bar");
+    if (el) el.textContent = countdownSec + "s";
+    const pct = (countdownSec / REFRESH_INTERVAL_S) * 100;
+    if (bar) {
+      bar.style.width = pct + "%";
+      bar.style.background = pct > 50 ? "var(--cyan)" : pct > 20 ? "var(--yellow)" : "var(--red)";
+    }
+  }, 1000);
+}
+
+// ── Log ──
+const logLines = [];
+function addLog(type, msg) {
+  const time = new Date().toTimeString().slice(0,8);
+  logLines.push({ time, type, msg });
+  if (logLines.length > 80) logLines.shift();
+  renderLog();
+}
+function renderLog() {
+  const body = document.getElementById("terminal-body");
+  body.innerHTML = logLines.map(l =>
+    `<div class="log-line"><span class="log-time">${l.time}</span><span class="log-${l.type}">${l.msg}</span></div>`
+  ).join("") + `<span class="cursor"></span>`;
+  body.scrollTop = body.scrollHeight;
+}
+
+// ── Toast ──
+function showToast(msg, type = "ok") {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => { t.className = "toast"; }, 3500);
+}
+
+// ── Chip pins ──
+function buildPins() {
+  const container = document.getElementById("chip-pins");
+  const pinCount = 4, spacing = (220 - 60) / (pinCount + 1);
+  for (let i = 0; i < pinCount; i++) {
+    const offset = 30 + spacing * (i + 1);
+    ["top","bottom"].forEach(side => {
+      const el = document.createElement("div");
+      el.className = `pin pin-${side}`; el.style.cssText = `left:${offset-4}px; ${side}:14px;`;
+      container.appendChild(el);
+    });
+    ["left","right"].forEach(side => {
+      const el = document.createElement("div");
+      el.className = `pin pin-${side}`; el.style.cssText = `top:${offset-4}px; ${side}:14px;`;
+      container.appendChild(el);
+    });
+  }
+}
+buildPins();
+
+// ── Helpers ──
+function formatUptime(sec) {
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  return `${h}h ${m}m ${s}s`;
+}
+
+function updateSource(idx, state, name, detail, badge, responseMs) {
+  const cards = document.getElementById("sources-grid").querySelectorAll(".status-card");
+  if (!cards[idx]) return;
+  const card = cards[idx];
+  const prevState = card.dataset.state;
+
+  // Detect state change for alerts
+  if (prevState && prevState !== state && prevState !== "info") {
+    if (state === "warn" || state === "err") {
+      playAlert(state === "err" ? "err" : "warn");
+      sendPushNotification(`${name} ${state === "err" ? "OFFLINE" : "DEGRADED"}`, detail, "⚠️");
+      addLog(state === "err" ? "err" : "warn", `[Alert] ${name} changed to ${badge}`);
+    } else if (state === "ok" && (prevState === "warn" || prevState === "err")) {
+      playAlert("ok");
+      sendPushNotification(`${name} RECOVERED`, detail, "✅");
+    }
+  }
+  card.dataset.state = state;
+  card.className = `status-card ${state}`;
+  card.querySelector(".status-name").textContent = name;
+  card.querySelector(".status-detail").textContent = detail;
+  card.querySelector(".status-detail").classList.remove("loading-pulse");
+  const b = card.querySelector(".status-badge");
+  b.textContent = badge;
+  b.className = `status-badge badge-${state === "ok" ? "ok" : state === "warn" ? "warn" : state === "err" ? "err" : "info"}`;
+
+  // Response time bar
+  const barId = idx === 0 ? "fb" : "wiki";
+  const respBar = document.getElementById(`${barId}-resp-bar`);
+  const respFill = document.getElementById(`${barId}-resp-fill`);
+  const respLabel = document.getElementById(`${barId}-resp-label`);
+  if (responseMs && respBar) {
+    respBar.style.display = "flex";
+    const pct = Math.min((responseMs / 3000) * 100, 100);
+    const color = responseMs < 500 ? "var(--green)" : responseMs < 1500 ? "var(--yellow)" : "var(--red)";
+    respFill.style.width = pct + "%";
+    respFill.style.background = color;
+    respLabel.textContent = responseMs + "ms";
+  }
+}
+
+function updateCheck(idx, state, name, detail, badge) {
+  const cards = document.getElementById("checks-grid").querySelectorAll(".status-card");
+  if (!cards[idx]) return;
+  const card = cards[idx];
+  card.className = `status-card ${state}`;
+  card.querySelector(".status-name").textContent = name;
+  card.querySelector(".status-detail").textContent = detail;
+  card.querySelector(".status-detail").classList.remove("loading-pulse");
+  const b = card.querySelector(".status-badge");
+  b.textContent = badge;
+  b.className = `status-badge badge-${state === "ok" ? "ok" : state === "warn" ? "warn" : state === "err" ? "err" : "info"}`;
+}
+
+// ── Stock change detection ──
+function checkStockChange(stock) {
+  if (!document.getElementById("toggle-stockalert").checked) return;
+  if (!stock?.current) return;
+  if (!lastKnownStock) { lastKnownStock = JSON.stringify(stock.current); return; }
+
+  const newJSON = JSON.stringify(stock.current);
+  if (newJSON !== lastKnownStock) {
+    lastKnownStock = newJSON;
+    const normal = stock.current.normal?.map(f => f.name).join(", ") || "—";
+    const mirage = stock.current.mirage?.map(f => f.name).join(", ") || "—";
+    const alertText = `Normal: ${normal} | Mirage: ${mirage}`;
+    document.getElementById("stock-alert-text").textContent = alertText;
+
+    const offlineBanner = document.getElementById("offline-banner");
+    const alertEl = document.getElementById("stock-alert");
+    alertEl.classList.add("visible");
+    if (offlineBanner.classList.contains("visible")) alertEl.classList.add("has-offline");
+
+    playAlert("ok");
+    sendPushNotification("Stock Changed!", alertText, "🍎");
+    addLog("ok", `[Stock] Change detected — ${alertText}`);
+    showToast("🍎 Stock has changed!", "ok");
+  }
+}
+
+function dismissStockAlert() {
+  document.getElementById("stock-alert").classList.remove("visible", "has-offline");
+}
+
+// ── Token display ──
+function updateTokenDisplay(meta) {
+  const valueEl = document.getElementById("token-value");
+  const badgeEl = document.getElementById("token-badge");
+  const ageTextEl = document.getElementById("token-age-text");
+  const barFill = document.getElementById("token-bar-fill");
+
+  if (!meta.nextActionToken) {
+    valueEl.textContent = "No token — auto-extract running";
+    badgeEl.textContent = "PENDING"; badgeEl.className = "status-badge badge-warn";
+    return;
+  }
+
+  const confirmed = meta.nextActionConfirmed ? " ✓ confirmed working" : " ⚠ not yet confirmed";
+  valueEl.textContent = meta.nextActionToken + confirmed;
+
+  if (!meta.nextActionFetchedAt) { ageTextEl.textContent = "Unknown"; return; }
+
+  const ageMs = Date.now() - new Date(meta.nextActionFetchedAt).getTime();
+  const ageMin = Math.floor(ageMs / 60000);
+  const ageHours = Math.floor(ageMin / 60);
+  let ageStr, barPct, barColor, badgeState, badgeText;
+
+  if (ageHours < 1) {
+    ageStr = `${ageMin}m ago`; barPct = (ageMin/60)*30; barColor = "var(--green)"; badgeState = "ok"; badgeText = "FRESH";
+  } else if (ageHours < 6) {
+    ageStr = `${ageHours}h ${ageMin%60}m ago`; barPct = 30+((ageHours/6)*40); barColor = "var(--green)"; badgeState = "ok"; badgeText = "OK";
+  } else if (ageHours < 24) {
+    ageStr = `${ageHours}h ago`; barPct = 70+((ageHours/24)*20); barColor = "var(--yellow)"; badgeState = "warn"; badgeText = "AGING";
+  } else {
+    const days = Math.floor(ageHours/24);
+    ageStr = `${days}d ${ageHours%24}h ago`; barPct = 100; barColor = "var(--red)"; badgeState = "err"; badgeText = "STALE";
+  }
+
+  ageTextEl.textContent = ageStr;
+  barFill.style.width = Math.min(barPct, 100) + "%";
+  barFill.style.background = barColor;
+  badgeEl.textContent = badgeText;
+  badgeEl.className = `status-badge badge-${badgeState}`;
+}
+
+// ── Render panel ──
+function updateRenderPanel(configured) {
+  const dot = document.getElementById("render-dot");
+  const label = document.getElementById("render-config-label");
+  document.getElementById("render-not-configured").style.display = configured ? "none" : "block";
+  document.getElementById("render-buttons").style.display = configured ? "grid" : "none";
+  if (configured) { dot.classList.add("configured"); label.textContent = "CONNECTED"; label.style.color = "var(--green)"; }
+  else { dot.classList.remove("configured"); label.textContent = "NOT CONFIGURED"; label.style.color = "var(--muted)"; }
+}
+
+// ── Main status loader ──
+async function loadStatus() {
+  startCountdown();
+  addLog("info", "Polling /health, /api/stock, /api/meta...");
+  let serverOnline = false;
+
+  // Health
+  try {
+    const health = await fetch(API + "/health").then(r => r.json());
+    const uptimeSec = Math.round(health.uptime || 0);
+    document.getElementById("stat-uptime").textContent = uptimeSec.toLocaleString();
+    document.getElementById("chip-status-text").textContent = "ONLINE";
+    document.getElementById("chip-sub").textContent = "ALL SYSTEMS GO";
+    document.getElementById("chip-uptime").textContent = `UPTIME: ${formatUptime(uptimeSec)}`;
+    updateCheck(0, "ok", "SERVER PROCESS", `Running — ${formatUptime(uptimeSec)} uptime`, "ONLINE");
+    addLog("ok", `[Health] OK — uptime ${uptimeSec}s`);
+    serverOnline = true;
+
+    // Was offline before — recovered
+    if (serverWasOffline) {
+      serverWasOffline = false;
+      document.getElementById("offline-banner").classList.remove("visible");
+      document.body.classList.remove("has-offline-banner");
+      playAlert("ok");
+      sendPushNotification("Server Recovered", "Server is back online", "✅");
+      addLog("ok", "[Server] Server came back online");
+    }
+  } catch(e) {
+    document.getElementById("chip-status-text").textContent = "ERROR";
+    document.getElementById("chip-sub").textContent = "SERVER UNREACHABLE";
+    updateCheck(0, "err", "SERVER PROCESS", "Cannot reach server", "DOWN");
+    addLog("err", `[Health] FAILED — ${e.message}`);
+
+    if (!serverWasOffline) {
+      serverWasOffline = true;
+      document.getElementById("offline-banner").classList.add("visible");
+      document.body.classList.add("has-offline-banner");
+      playAlert("err");
+      sendPushNotification("Server Offline!", "Cannot reach the backend server", "🚨");
+      addLog("err", "[Server] Server went offline");
+    }
+  }
+
+  // Stock
+  try {
+    const stock = await fetch(API + "/api/stock").then(r => r.json());
+    const normalCount = stock.current?.normal?.length || 0;
+    const mirageCount = stock.current?.mirage?.length || 0;
+    document.getElementById("stat-fruits").textContent = normalCount + mirageCount;
+    if (stock.lastUpdated) {
+      const mins = Math.round((Date.now() - new Date(stock.lastUpdated)) / 60000);
+      document.getElementById("stat-updated").textContent = mins;
+    }
+    updateCheck(1, stock.current ? "ok" : "warn", "STOCK CACHE",
+      stock.current ? `${normalCount} normal, ${mirageCount} mirage fruits` : "No cached data yet",
+      stock.current ? "LOADED" : "EMPTY");
+    addLog("ok", `[Stock] ${normalCount} normal, ${mirageCount} mirage fruits`);
+    checkStockChange(stock);
+  } catch(e) {
+    updateCheck(1, "err", "STOCK CACHE", "Failed to load", "ERROR");
+    addLog("err", `[Stock] FAILED — ${e.message}`);
+  }
+
+  // Meta (token + source health from server)
+  try {
+    const meta = await fetch(API + "/api/meta").then(r => r.json());
+    updateTokenDisplay(meta);
+    updateRenderPanel(meta.renderConfigured);
+
+    // Use server-side source health data for accurate status + response times
+    const fb = meta.sources?.fruityblox;
+    const wiki = meta.sources?.wiki;
+
+    if (fb) {
+      const fbState = fb.status === "ok" ? "ok" : fb.status === "skipped" ? "warn" : fb.status === "offline" ? "err" : "warn";
+      const fbDetail = fb.status === "skipped"
+        ? `Rate-limited — ${fb.consecutiveFailures} failures`
+        : fb.status === "ok"
+        ? `Connected — last success ${fb.lastSuccess ? Math.round((Date.now()-new Date(fb.lastSuccess))/60000)+"m ago" : "unknown"}`
+        : `${fb.consecutiveFailures} consecutive failures`;
+      const fbBadge = fb.status === "ok" ? "ONLINE" : fb.status === "skipped" ? "SKIPPED" : fb.status === "offline" ? "OFFLINE" : "DEGRADED";
+      updateSource(0, fbState, "FRUITYBLOX", fbDetail, fbBadge, fb.lastResponseMs);
+    }
+
+    if (wiki) {
+      const wikiState = wiki.status === "ok" ? "ok" : wiki.status === "offline" ? "err" : "info";
+      const wikiDetail = fb?.status === "ok" ? "Standby — fallback ready" : wiki.status === "ok" ? "Fallback ACTIVE — serving as primary" : "Standby";
+      const wikiBadge = fb?.status === "ok" ? "STANDBY" : wiki.status === "ok" ? "ACTIVE" : "STANDBY";
+      updateSource(1, fb?.status === "ok" ? "ok" : wiki.status === "ok" ? "ok" : "info", "FANDOM WIKI", wikiDetail, wikiBadge, wiki.lastResponseMs);
+    }
+
+    addLog("info", `[Meta] FB: ${fb?.status || "?"} | Wiki: ${wiki?.status || "?"} | Token: ${meta.nextActionConfirmed ? "confirmed" : "unconfirmed"}`);
+  } catch(e) {
+    addLog("warn", `[Meta] Could not load meta — ${e.message}`);
+    updateRenderPanel(false);
+    // Fallback to debug-fruityblox check
+    try {
+      const fb = await fetch(API + "/api/debug-fruityblox").then(r => r.json());
+      if (fb.raw?.includes('"normal"')) {
+        updateSource(0, "ok", "FRUITYBLOX", "Connected — returning stock data", "ONLINE", null);
+        updateSource(1, "ok", "FANDOM WIKI", "Standby — fallback ready", "STANDBY", null);
+      } else {
+        updateSource(0, "warn", "FRUITYBLOX", "Response missing expected data", "DEGRADED", null);
+        updateSource(1, "ok", "FANDOM WIKI", "Fallback ACTIVE — serving as primary", "ACTIVE", null);
+      }
+    } catch(e2) {
+      updateSource(0, "err", "FRUITYBLOX", "Connection failed", "OFFLINE", null);
+      updateSource(1, "ok", "FANDOM WIKI", "Fallback ACTIVE", "ACTIVE", null);
+    }
+  }
+}
+
+// ── Token refresh ──
+async function refreshToken() {
+  addLog("info", "[Token] Manual refresh triggered...");
+  showToast("↺ Refreshing token...", "ok");
+  try {
+    const res = await fetch(API + "/api/refresh-token", { method: "POST" }).then(r => r.json());
+    if (res.ok) {
+      addLog("ok", `[Token] Refreshed — new token: ${res.token}`);
+      showToast("✓ Token refreshed", "ok");
+      setTimeout(loadStatus, 500);
+    } else {
+      addLog("err", `[Token] Refresh failed — ${res.error}`);
+      showToast("✗ Token refresh failed", "err");
+    }
+  } catch(e) {
+    addLog("err", `[Token] Request failed — ${e.message}`);
+    showToast("✗ Request failed", "err");
+  }
+}
+
+// ── Reset source ──
+async function resetSource(source) {
+  addLog("warn", `[Source] Resetting ${source} backoff...`);
+  try {
+    const res = await fetch(API + `/api/reset-source/${source}`, { method: "POST" }).then(r => r.json());
+    if (res.ok) {
+      addLog("ok", `[Source] ${source} reset — will retry on next poll`);
+      showToast(`✓ ${source} backoff cleared`, "ok");
+      setTimeout(loadStatus, 500);
+    }
+  } catch(e) {
+    addLog("err", `[Source] Reset failed — ${e.message}`);
+  }
+}
+
+// ── Modals ──
+function confirmAction(type, title, text, action) {
+  document.getElementById("d-modal-icon").textContent = type === "cache" ? "🗑️" : "⚡";
+  document.getElementById("d-modal-title").textContent = title;
+  document.getElementById("d-modal-text").textContent = text;
+  pendingDangerAction = action;
+  document.getElementById("modal-danger").classList.add("visible");
+}
+function confirmRender(type, title, text, action) {
+  document.getElementById("r-modal-icon").textContent = type === "restart" ? "🔁" : "🚀";
+  document.getElementById("r-modal-title").textContent = title;
+  document.getElementById("r-modal-text").textContent = text;
+  pendingRenderAction = action;
+  document.getElementById("modal-render").classList.add("visible");
+}
+function closeModals() {
+  document.getElementById("modal-danger").classList.remove("visible");
+  document.getElementById("modal-render").classList.remove("visible");
+  pendingDangerAction = null; pendingRenderAction = null;
+}
+function runDangerConfirmed() { closeModals(); if (pendingDangerAction) pendingDangerAction(); }
+function runRenderConfirmed() { closeModals(); if (pendingRenderAction) pendingRenderAction(); }
+
+// ── Danger actions ──
+async function clearCache() {
+  addLog("warn", "[Cache] Clear requested...");
+  try {
+    const res = await fetch(API + "/api/clear-cache", { method: "POST" });
+    if (res.ok) { addLog("ok", "[Cache] Cleared"); showToast("✓ Cache cleared", "ok"); setTimeout(loadStatus, 1000); }
+    else { showToast("✗ Clear failed", "err"); }
+  } catch(e) { showToast("✗ Request failed", "err"); }
+}
+async function forceFetch() {
+  addLog("info", "[Fetch] Force fetch triggered...");
+  try {
+    const res = await fetch(API + "/api/force-fetch", { method: "POST" });
+    if (res.ok) { const d = await res.json(); addLog("ok", `[Fetch] Done — source: ${d.sourceUsed || "?"}`); showToast("✓ Stock fetched", "ok"); setTimeout(loadStatus, 1500); }
+    else { showToast("✗ Fetch failed", "err"); }
+  } catch(e) { showToast("✗ Request failed", "err"); }
+}
+
+// ── Render actions ──
+async function doRestart() {
+  addLog("warn", "[Render] Restart requested...");
+  document.getElementById("btn-restart").disabled = true;
+  try {
+    const res = await fetch(API + "/api/render-restart", { method: "POST" });
+    const d = await res.json();
+    if (res.ok) { addLog("ok", "[Render] Restart triggered — back in ~10s"); showToast("✓ Restart triggered", "ok"); }
+    else { addLog("err", `[Render] ${d.error}`); showToast("✗ " + (d.error || "Failed"), "err"); }
+  } catch(e) { showToast("✗ Request failed", "err"); }
+  setTimeout(() => { document.getElementById("btn-restart").disabled = false; }, 15000);
+}
+async function doRedeploy() {
+  addLog("warn", "[Render] Redeploy requested...");
+  document.getElementById("btn-redeploy").disabled = true;
+  try {
+    const res = await fetch(API + "/api/render-redeploy", { method: "POST" });
+    const d = await res.json();
+    if (res.ok) { addLog("ok", `[Render] Redeploy triggered — ID: ${d.deployId || "?"}`); addLog("info", "[Render] App offline for 1-3 min"); showToast("✓ Redeploy triggered", "ok"); }
+    else { addLog("err", `[Render] ${d.error}`); showToast("✗ " + (d.error || "Failed"), "err"); }
+  } catch(e) { showToast("✗ Request failed", "err"); }
+  setTimeout(() => { document.getElementById("btn-redeploy").disabled = false; }, 30000);
+}
+
+// ── Init ──
+applyPrefs();
+updatePushLabel();
+loadStatus();
+setInterval(loadStatus, REFRESH_INTERVAL_S * 1000);
+</script>
+</body>
+</html>
