@@ -200,7 +200,7 @@ app.get("/api/debug-fruityblox", async (req, res) => {
         timeout: 10000,
         headers: {
           "Content-Type": "text/plain;charset=UTF-8",
-          "Next-Action": "fVf4BAaS1ANg-cLsn4nAM",
+          "Next-Action": "000e834c372ac1b9cdffe4f36d95a76c33c66cbd36",
           "User-Agent": "Mozilla/5.0",
           "Origin": "https://fruityblox.com",
           "Referer": "https://fruityblox.com/stock",
