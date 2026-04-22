@@ -19,15 +19,13 @@ app.use(express.static(path.join(__dirname, "public")));
 const FRUIT_PRICES = {
   "Spring": 60000, "Bomb": 80000, "Smoke": 100000,
   "Spike": 180000, "Flame": 250000, "Ice": 350000, "Sand": 420000, "Dark": 500000,
-  "Ghost": 550000, "Diamond": 600000, "Light": 650000, "Rubber": 750000, "Magma": 850000,
-  "Quake": 1000000, "Buddha": 1200000, "Love": 1300000, "Spider": 1500000, "Sound": 1700000,
-  "Phoenix": 1800000, "Portal": 1900000, "Rumble": 2100000, "Blizzard": 2400000,
+  "Ghost": 850000, "Diamond": 600000, "Light": 650000, "Rubber": 750000, "Magma": 850000,
+  "Quake": 1000000, "Buddha": 1200000, "Love": 1300000, "Spider": 1500000, "Sound": 1700000, a
   "Gravity": 2500000, "Mammoth": 2700000, "T-Rex": 2700000, "Dough": 2800000,
-  "Shadow": 2900000, "Venom": 3000000, "Control": 3200000, "Spirit": 3400000,
-  "Kitsune": 8000000, "Dragon": 10000000,
-  "Blade": 600000, "Eagle": 650000, "Creation": 3000000,
+  "Shadow": 2900000, "Venom": 3000000, "Control": 10000000, "Spirit": 3400000,
+  "Kitsune": 8000000, "Dragon": 15000000,
   "Lightning": 2000000, "Pain": 2200000, "Gas": 2300000,
-  "Tiger": 2000000, "Yeti": 2100000,
+  "Tiger": 5000000, "Yeti": 5000000,
 };
 
 // ── Cache loader ───────────────────────────────────────────────────────────
