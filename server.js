@@ -30,396 +30,387 @@ const FRUIT_PRICES = {
   "Tiger": 2000000, "Yeti": 2100000,
 };
 
-// ── Cache loader ───────────────────────────────────────────────────────────
+const BLOCKED = new Set(["Rocket", "Spin"]);
+
+// ── Cache ──────────────────────────────────────────────────────────────────
 function loadCache() {
   try {
-    if (fs.existsSync(CACHE_FILE)) return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+    if (fs.existsSync(CACHE_FILE))
+      return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
   } catch (e) {}
   return { current: null, last: null, beforeLast: null, lastUpdated: null };
 }
 
 let stockState = loadCache();
 
-// ── Source health tracking ─────────────────────────────────────────────────
+// ── Source health ──────────────────────────────────────────────────────────
 const sourceHealth = {
-  fruityblox: {
-    consecutiveFailures: 0,
-    lastSuccess: null,
-    lastAttempt: null,
-    lastResponseMs: null,
-    status: "unknown",
-    skippedUntil: null,
-  },
-  wiki: {
-    consecutiveFailures: 0,
-    lastSuccess: null,
-    lastAttempt: null,
-    lastResponseMs: null,
-    status: "unknown",
-    skippedUntil: null,
-  }
+  fruityblox: { status: "unknown", lastSuccess: null, lastAttempt: null, lastResponseMs: null, consecutiveFailures: 0 },
+  wiki:        { status: "unknown", lastSuccess: null, lastAttempt: null, lastResponseMs: null, consecutiveFailures: 0 },
 };
 
-const MAX_CONSECUTIVE_FAILURES = 5;
-const BACKOFF_MS = 10 * 60 * 1000; // 10 minutes
-
-function shouldSkipSource(source) {
-  const h = sourceHealth[source];
-  if (h.skippedUntil && Date.now() < h.skippedUntil) {
-    const minsLeft = Math.ceil((h.skippedUntil - Date.now()) / 60000);
-    console.log(`[RateLimit] Skipping ${source} — backed off for ${minsLeft} more min`);
-    h.status = "skipped";
-    return true;
-  }
-  if (h.skippedUntil && Date.now() >= h.skippedUntil) {
-    console.log(`[RateLimit] Backoff expired for ${source} — retrying`);
-    h.skippedUntil = null;
-    h.consecutiveFailures = 0;
-  }
-  return false;
-}
-
-function recordSuccess(source, responseMs) {
-  const h = sourceHealth[source];
+function recordSuccess(src, ms) {
+  const h = sourceHealth[src];
+  h.status = "ok";
   h.consecutiveFailures = 0;
   h.lastSuccess = new Date().toISOString();
-  h.lastResponseMs = responseMs;
-  h.skippedUntil = null;
-  h.status = "ok";
+  h.lastResponseMs = ms;
 }
 
-function recordFailure(source) {
-  const h = sourceHealth[source];
+function recordFailure(src, ms) {
+  const h = sourceHealth[src];
   h.consecutiveFailures++;
-  h.status = h.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES ? "offline" : "degraded";
-  if (h.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-    h.skippedUntil = Date.now() + BACKOFF_MS;
-    console.warn(`[RateLimit] ${source} hit ${MAX_CONSECUTIVE_FAILURES} failures — backing off 10 min`);
-  }
+  h.lastResponseMs = ms ?? null;
+  h.status = h.consecutiveFailures >= 5 ? "offline" : "degraded";
 }
 
-// ── Smart token system ─────────────────────────────────────────────────────
-let tokenState = {
-  value: null,
-  fetchedAt: null,
-  worksConfirmed: false,
-  fetchAttempts: 0,
-};
+// ── Token: scrape fresh from page every time ───────────────────────────────
+let cachedToken = null;
+let tokenFetchedAt = 0;
+const TOKEN_TTL_MS = 5 * 60 * 1000; // hergebruik max 5 min
 
-// Patterns tried in order — most specific first
-const TOKEN_PATTERNS = [
-  /["']([a-f0-9]{40})["']/g,
-  /data-action(?:-id)?=["']([a-f0-9]{20,50})["']/gi,
-  /"id"\s*:\s*"([a-f0-9]{38,42})"/g,
-  /Next-Action['":\s]+([a-f0-9]{30,50})/gi,
-  /\b([a-f0-9]{38,42})\b/g,
-];
+async function fetchToken() {
+  // Gebruik gecachte token als hij recent is
+  if (cachedToken && Date.now() - tokenFetchedAt < TOKEN_TTL_MS) {
+    console.log(`[Token] Using cached token: ${cachedToken.slice(0, 10)}...`);
+    return cachedToken;
+  }
 
-async function extractTokenFromPage() {
-  console.log("[Token] Fetching FruityBlox page...");
-  const start = Date.now();
+  console.log("[Token] Scraping fresh token from FruityBlox...");
   try {
     const res = await axios.get("https://fruityblox.com/stock", {
       timeout: 12000,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124",
+        "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
       }
     });
 
-    const html = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
-    console.log(`[Token] Page fetched in ${Date.now() - start}ms (${html.length} chars)`);
+    const html = res.data;
 
-    const candidates = new Map();
-    for (const pattern of TOKEN_PATTERNS) {
-      pattern.lastIndex = 0;
-      let match;
-      while ((match = pattern.exec(html)) !== null) {
-        const c = match[1];
-        if (c && /^[a-f0-9]{36,44}$/.test(c)) {
-          candidates.set(c, (candidates.get(c) || 0) + 1);
-        }
-      }
-    }
+    // Zoek alle Next-Action achtige tokens (hex strings 30-60 chars)
+    const matches = [...html.matchAll(/([a-f0-9]{38,50})/g)]
+      .map(m => m[1]);
 
-    if (candidates.size === 0) {
-      console.warn("[Token] No candidates found in page HTML");
+    // Tel frequentie — meest voorkomende is het meest betrouwbaar
+    const freq = {};
+    for (const m of matches) freq[m] = (freq[m] || 0) + 1;
+    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+
+    if (sorted.length === 0) {
+      console.warn("[Token] No token candidates found in HTML");
       return null;
     }
 
-    const sorted = [...candidates.entries()].sort((a, b) => b[1] - a[1]);
-    const best = sorted[0][0];
-    console.log(`[Token] Best candidate: ${best.slice(0,12)}... (seen ${sorted[0][1]}x out of ${candidates.size} candidates)`);
-    return best;
+    const token = sorted[0][0];
+    console.log(`[Token] Found: ${token.slice(0, 10)}... (${sorted[0][1]}x in page)`);
+    cachedToken = token;
+    tokenFetchedAt = Date.now();
+    return token;
 
   } catch (err) {
-    console.error("[Token] Page fetch failed:", err.message);
-    return null;
+    console.error("[Token] Scrape failed:", err.message);
+    return cachedToken || null; // val terug op oude token
   }
 }
 
-async function getToken(forceRefresh = false) {
-  if (tokenState.value && tokenState.worksConfirmed && !forceRefresh) {
-    return tokenState.value;
-  }
-  if (tokenState.fetchAttempts >= 3) {
-    console.warn("[Token] Max fetch attempts this cycle — using cached token");
-    return tokenState.value;
-  }
-
-  tokenState.fetchAttempts++;
-  const newToken = await extractTokenFromPage();
-
-  if (newToken) {
-    if (newToken !== tokenState.value) {
-      console.log(`[Token] Token changed: ${tokenState.value?.slice(0,8) || "none"} → ${newToken.slice(0,8)}`);
-      tokenState.worksConfirmed = false;
-    }
-    tokenState.value = newToken;
-    tokenState.fetchedAt = new Date().toISOString();
-  }
-
-  return tokenState.value;
-}
-
-function resetTokenAttempts() {
-  tokenState.fetchAttempts = 0;
-}
-
-// ── FruityBlox fetch ───────────────────────────────────────────────────────
+// ── FruityBlox ─────────────────────────────────────────────────────────────
 async function fetchFromFruityBlox() {
-  if (shouldSkipSource("fruityblox")) return null;
-
   sourceHealth.fruityblox.lastAttempt = new Date().toISOString();
   console.log("[FruityBlox] Fetching...");
 
-  let token = await getToken(false);
+  const token = await fetchToken();
   if (!token) {
-    console.warn("[FruityBlox] No token — skipping");
+    console.warn("[FruityBlox] No token available — skipping");
     recordFailure("fruityblox");
     return null;
   }
 
   const start = Date.now();
   try {
-    const response = await axios.post(
-      "https://fruityblox.com/stock", [],
-      {
-        timeout: 10000,
-        headers: {
-          "Content-Type": "text/plain;charset=UTF-8",
-          "Next-Action": token,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-          "Origin": "https://fruityblox.com",
-          "Referer": "https://fruityblox.com/stock",
-        }
+    const res = await axios.post("https://fruityblox.com/stock", [], {
+      timeout: 10000,
+      headers: {
+        "Content-Type": "text/plain;charset=UTF-8",
+        "Next-Action": token,
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124",
+        "Origin": "https://fruityblox.com",
+        "Referer": "https://fruityblox.com/stock",
+        "Accept": "*/*",
       }
-    );
+    });
 
-    const responseMs = Date.now() - start;
-    const raw = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+    const ms = Date.now() - start;
+    const raw = typeof res.data === "string" ? res.data : JSON.stringify(res.data);
+
+    // Parse Next.js server action response
+    // Formaat: "0:{...meta...}\n1:{...stockdata...}\n"
     let stockData = null;
-
     for (const line of raw.split("\n")) {
-      if (line.includes('"normal"')) {
-        try { stockData = JSON.parse(line.replace(/^\d+:/, "")); break; }
-        catch(e) { /* try next */ }
-      }
+      const clean = line.replace(/^\d+:/, "").trim();
+      if (!clean.startsWith("{")) continue;
+      try {
+        const parsed = JSON.parse(clean);
+        if (parsed.normal || parsed.mirage) {
+          stockData = parsed;
+          break;
+        }
+      } catch (_) {}
     }
 
-    if (!stockData?.normal) {
-      console.warn("[FruityBlox] No 'normal' in response — token likely stale");
-      tokenState.worksConfirmed = false;
-      recordFailure("fruityblox");
+    if (!stockData) {
+      // Token is verlopen — invalideert cache zodat volgende call opnieuw scrapet
+      console.warn("[FruityBlox] No stock data in response — token may be stale, clearing cache");
+      cachedToken = null;
+      recordFailure("fruityblox", ms);
       return null;
     }
 
-    tokenState.worksConfirmed = true;
-    recordSuccess("fruityblox", responseMs);
-
     const normal = (stockData.normal || [])
-      .filter(f => f.name && f.name !== "Rocket" && f.name !== "Spin")
+      .filter(f => f?.name && !BLOCKED.has(f.name))
       .map(f => ({ name: f.name, price: FRUIT_PRICES[f.name] ?? f.price ?? 0 }));
 
     const mirage = (stockData.mirage || [])
-      .filter(f => f.name && f.name !== "Rocket" && f.name !== "Spin")
+      .filter(f => f?.name && !BLOCKED.has(f.name))
       .map(f => ({ name: f.name, price: FRUIT_PRICES[f.name] ?? f.price ?? 0 }));
 
-    console.log(`[FruityBlox] OK in ${responseMs}ms — Normal: ${normal.map(f=>f.name).join(", ")}`);
-    if (normal.length === 0) { recordFailure("fruityblox"); return null; }
+    if (normal.length === 0) {
+      console.warn("[FruityBlox] Parsed data has 0 normal fruits — suspicious, skipping");
+      recordFailure("fruityblox", ms);
+      return null;
+    }
+
+    recordSuccess("fruityblox", ms);
+    console.log(`[FruityBlox] ✓ ${ms}ms — Normal: ${normal.map(f => f.name).join(", ")}`);
+    if (mirage.length) console.log(`[FruityBlox] Mirage: ${mirage.map(f => f.name).join(", ")}`);
     return { normal, mirage };
 
   } catch (err) {
-    const responseMs = Date.now() - start;
-    console.error(`[FruityBlox] Error after ${responseMs}ms:`, err.message);
-    sourceHealth.fruityblox.lastResponseMs = responseMs;
-    recordFailure("fruityblox");
-    if (tokenState.worksConfirmed) {
-      console.log("[FruityBlox] Token was working but now fails — will re-extract next cycle");
-      tokenState.worksConfirmed = false;
+    const ms = Date.now() - start;
+    console.error(`[FruityBlox] ✗ ${ms}ms — ${err.message}`);
+    // Bij 4xx/5xx: token waarschijnlijk verlopen
+    if (err.response?.status >= 400) {
+      console.log("[FruityBlox] HTTP error — clearing token cache");
+      cachedToken = null;
     }
+    recordFailure("fruityblox", ms);
     return null;
   }
 }
 
-// ── Wiki fetch ─────────────────────────────────────────────────────────────
+// ── Wiki (altijd secondary) ────────────────────────────────────────────────
 async function fetchFromWiki() {
-  if (shouldSkipSource("wiki")) return null;
-
   sourceHealth.wiki.lastAttempt = new Date().toISOString();
-  console.log("[Wiki] Fetching...");
+  console.log("[Wiki] Fetching (secondary/fallback)...");
 
   const start = Date.now();
   try {
-    const response = await axios.get(
+    const res = await axios.get(
       "https://blox-fruits.fandom.com/api.php?action=parse&page=Blox_Fruits_%22Stock%22&prop=wikitext&format=json",
-      { timeout: 10000, headers: { "User-Agent": "Mozilla/5.0 Tracker/1.0" } }
+      { timeout: 12000, headers: { "User-Agent": "Mozilla/5.0 Tracker/1.0" } }
     );
 
-    const responseMs = Date.now() - start;
-    const wikitext = response.data?.parse?.wikitext?.["*"] || "";
+    const ms = Date.now() - start;
+    const wikitext = res.data?.parse?.wikitext?.["*"] || "";
 
     let normalFruits = [], mirageFruits = [];
-    const currentMatch = wikitext.match(/\|\s*[Cc]urrent\s*=\s*([^\n|\]]+)/);
-    if (currentMatch) {
-      normalFruits = currentMatch[1].split(",")
+
+    const normalMatch = wikitext.match(/\|\s*[Cc]urrent\s*=\s*([^\n|\]]+)/);
+    if (normalMatch) {
+      normalFruits = normalMatch[1].split(",")
         .map(s => s.trim().replace(/[^a-zA-Z\-]/g, ""))
-        .filter(name => name && name !== "Rocket" && name !== "Spin" && FRUIT_PRICES[name]);
+        .filter(n => n && !BLOCKED.has(n) && FRUIT_PRICES[n]);
     }
+
     const mirageMatch = wikitext.match(/\|\s*[Mm]irage\s*=\s*([^\n|\]]+)/);
     if (mirageMatch) {
       mirageFruits = mirageMatch[1].split(",")
         .map(s => s.trim().replace(/[^a-zA-Z\-]/g, ""))
-        .filter(name => name && name !== "Rocket" && name !== "Spin" && FRUIT_PRICES[name]);
+        .filter(n => n && !BLOCKED.has(n) && FRUIT_PRICES[n]);
     }
 
     if (normalFruits.length === 0) {
-      console.warn("[Wiki] No fruits found");
-      recordFailure("wiki");
+      console.warn("[Wiki] No fruits parsed — wiki format may have changed");
+      recordFailure("wiki", ms);
       return null;
     }
 
-    recordSuccess("wiki", responseMs);
-    console.log(`[Wiki] OK in ${responseMs}ms — Normal: ${normalFruits.join(", ")}`);
+    recordSuccess("wiki", ms);
+    console.log(`[Wiki] ✓ ${ms}ms — Normal: ${normalFruits.join(", ")}`);
     return {
-      normal: normalFruits.map(name => ({ name, price: FRUIT_PRICES[name] })),
-      mirage: mirageFruits.map(name => ({ name, price: FRUIT_PRICES[name] })),
+      normal: normalFruits.map(n => ({ name: n, price: FRUIT_PRICES[n] })),
+      mirage: mirageFruits.map(n => ({ name: n, price: FRUIT_PRICES[n] })),
     };
 
   } catch (err) {
-    const responseMs = Date.now() - start;
-    console.error(`[Wiki] Error after ${responseMs}ms:`, err.message);
-    sourceHealth.wiki.lastResponseMs = responseMs;
-    recordFailure("wiki");
+    const ms = Date.now() - start;
+    console.error(`[Wiki] ✗ ${ms}ms — ${err.message}`);
+    recordFailure("wiki", ms);
     return null;
   }
 }
 
-// ── Stock updater ──────────────────────────────────────────────────────────
+// ── Core updater ───────────────────────────────────────────────────────────
 async function updateStock() {
-  resetTokenAttempts();
+  // Altijd FruityBlox eerst, Wiki altijd als fallback
   let stock = await fetchFromFruityBlox();
-  if (!stock) {
-    console.log("[Updater] FruityBlox failed, trying Wiki...");
-    stock = await fetchFromWiki();
-  }
-  if (!stock) { console.error("[Updater] Both sources failed."); return; }
+  let usedSource = "fruityblox";
 
-  const newStockJSON = JSON.stringify(stock);
-  if (JSON.stringify(stockState.current) !== newStockJSON) {
-    console.log("[Updater] New stock detected — updating history.");
+  if (!stock) {
+    console.log("[Updater] FruityBlox failed — falling back to Wiki");
+    stock = await fetchFromWiki();
+    usedSource = "wiki";
+  }
+
+  if (!stock) {
+    console.error("[Updater] Both sources failed — stock unchanged");
+    return false;
+  }
+
+  const newJSON = JSON.stringify(stock);
+  if (JSON.stringify(stockState.current) !== newJSON) {
+    console.log(`[Updater] New stock from ${usedSource} — updating history`);
     stockState.beforeLast = stockState.last;
     stockState.last = stockState.current;
     stockState.current = stock;
     stockState.lastUpdated = new Date().toISOString();
     fs.writeFileSync(CACHE_FILE, JSON.stringify(stockState, null, 2));
   } else {
-    console.log("[Updater] Stock unchanged.");
+    console.log(`[Updater] Stock unchanged (source: ${usedSource})`);
   }
+
+  return true;
 }
 
 // ── Routes ─────────────────────────────────────────────────────────────────
-app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime() }));
-app.get("/api/stock", (req, res) => res.json(stockState));
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", uptime: process.uptime() });
+});
+
+app.get("/api/stock", (req, res) => {
+  res.json(stockState);
+});
 
 app.get("/api/meta", (req, res) => {
   res.json({
-    nextActionToken: tokenState.value ? tokenState.value.slice(0, 8) + "..." : null,
-    nextActionFetchedAt: tokenState.fetchedAt,
-    nextActionConfirmed: tokenState.worksConfirmed,
+    token: cachedToken ? cachedToken.slice(0, 10) + "..." : null,
+    tokenFetchedAt: tokenFetchedAt ? new Date(tokenFetchedAt).toISOString() : null,
+    tokenAgeMs: cachedToken ? Date.now() - tokenFetchedAt : null,
+    sources: sourceHealth,
     renderConfigured: !!(RENDER_API_KEY && RENDER_SERVICE_ID),
-    sources: {
-      fruityblox: { ...sourceHealth.fruityblox },
-      wiki: { ...sourceHealth.wiki },
-    }
   });
 });
 
-app.get("/api/debug-wiki", async (req, res) => {
-  try {
-    const r = await axios.get("https://blox-fruits.fandom.com/api.php?action=parse&page=Blox_Fruits_%22Stock%22&prop=wikitext&format=json", { timeout: 10000, headers: { "User-Agent": "Mozilla/5.0" } });
-    res.json({ wikitext: r.data?.parse?.wikitext?.["*"]?.slice(0, 2000) });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get("/api/debug-fruityblox", async (req, res) => {
-  try {
-    const token = await getToken(false);
-    const r = await axios.post("https://fruityblox.com/stock", [], { timeout: 10000, headers: { "Content-Type": "text/plain;charset=UTF-8", "Next-Action": token || "", "User-Agent": "Mozilla/5.0", "Origin": "https://fruityblox.com", "Referer": "https://fruityblox.com/stock" } });
-    const raw = typeof r.data === "string" ? r.data : JSON.stringify(r.data);
-    res.json({ raw: raw.slice(0, 3000), token: token ? token.slice(0, 8) + "..." : null });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+// Echte refresh: forceert fetch + stuurt nieuwe stock terug
+app.post("/api/refresh", async (req, res) => {
+  console.log("[Refresh] Manual refresh triggered");
+  cachedToken = null; // forceer nieuwe token scrape
+  const ok = await updateStock();
+  res.json({
+    ok,
+    stock: stockState,
+    sources: sourceHealth,
+  });
 });
 
 app.post("/api/clear-cache", (req, res) => {
   try {
     stockState = { current: null, last: null, beforeLast: null, lastUpdated: null };
     if (fs.existsSync(CACHE_FILE)) fs.unlinkSync(CACHE_FILE);
+    console.log("[Cache] Cleared via API");
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post("/api/force-fetch", async (req, res) => {
-  try {
-    await updateStock();
-    res.json({ ok: true, message: "Stock fetch completed", sourceUsed: sourceHealth.fruityblox.status === "ok" ? "fruityblox" : "wiki" });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  cachedToken = null;
+  const ok = await updateStock();
+  res.json({
+    ok,
+    message: ok ? "Fetch completed" : "Both sources failed",
+    usedSource: sourceHealth.fruityblox.status === "ok" ? "fruityblox" : "wiki",
+    sources: sourceHealth,
+  });
 });
 
 app.post("/api/refresh-token", async (req, res) => {
-  try {
-    tokenState.worksConfirmed = false;
-    tokenState.fetchAttempts = 0;
-    const token = await getToken(true);
-    res.json({ ok: !!token, token: token ? token.slice(0, 8) + "..." : null, fetchedAt: tokenState.fetchedAt });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  cachedToken = null;
+  tokenFetchedAt = 0;
+  const token = await fetchToken();
+  res.json({ ok: !!token, token: token ? token.slice(0, 10) + "..." : null });
 });
 
 app.post("/api/reset-source/:source", (req, res) => {
   const src = req.params.source;
   if (!sourceHealth[src]) return res.status(400).json({ error: "Unknown source" });
   sourceHealth[src].consecutiveFailures = 0;
-  sourceHealth[src].skippedUntil = null;
   sourceHealth[src].status = "unknown";
-  console.log(`[RateLimit] Source ${src} manually reset`);
-  res.json({ ok: true, message: `${src} backoff cleared` });
+  console.log(`[Reset] Source ${src} manually reset`);
+  res.json({ ok: true });
+});
+
+app.get("/api/debug-wiki", async (req, res) => {
+  try {
+    const r = await axios.get(
+      "https://blox-fruits.fandom.com/api.php?action=parse&page=Blox_Fruits_%22Stock%22&prop=wikitext&format=json",
+      { timeout: 10000, headers: { "User-Agent": "Mozilla/5.0" } }
+    );
+    res.json({ wikitext: r.data?.parse?.wikitext?.["*"]?.slice(0, 2000) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/debug-fruityblox", async (req, res) => {
+  try {
+    const token = await fetchToken();
+    const r = await axios.post("https://fruityblox.com/stock", [], {
+      timeout: 10000,
+      headers: {
+        "Content-Type": "text/plain;charset=UTF-8",
+        "Next-Action": token || "",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Origin": "https://fruityblox.com",
+        "Referer": "https://fruityblox.com/stock",
+      }
+    });
+    const raw = typeof r.data === "string" ? r.data : JSON.stringify(r.data);
+    res.json({ raw: raw.slice(0, 3000), token: token ? token.slice(0, 10) + "..." : null });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post("/api/render-restart", async (req, res) => {
-  if (!RENDER_API_KEY || !RENDER_SERVICE_ID) return res.status(503).json({ error: "Render API not configured." });
+  if (!RENDER_API_KEY || !RENDER_SERVICE_ID)
+    return res.status(503).json({ error: "Render API not configured" });
   try {
-    await axios.post(`https://api.render.com/v1/services/${RENDER_SERVICE_ID}/restart`, {}, { timeout: 15000, headers: { "Authorization": `Bearer ${RENDER_API_KEY}`, "Accept": "application/json" } });
-    res.json({ ok: true, message: "Server restart triggered" });
-  } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
+    await axios.post(
+      `https://api.render.com/v1/services/${RENDER_SERVICE_ID}/restart`, {},
+      { timeout: 15000, headers: { "Authorization": `Bearer ${RENDER_API_KEY}`, "Accept": "application/json" } }
+    );
+    res.json({ ok: true, message: "Restart triggered" });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
 });
 
 app.post("/api/render-redeploy", async (req, res) => {
-  if (!RENDER_API_KEY || !RENDER_SERVICE_ID) return res.status(503).json({ error: "Render API not configured." });
+  if (!RENDER_API_KEY || !RENDER_SERVICE_ID)
+    return res.status(503).json({ error: "Render API not configured" });
   try {
-    const r = await axios.post(`https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys`, { clearCache: "do_not_clear" }, { timeout: 15000, headers: { "Authorization": `Bearer ${RENDER_API_KEY}`, "Accept": "application/json", "Content-Type": "application/json" } });
-    res.json({ ok: true, message: "Redeploy triggered", deployId: r.data?.id });
-  } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
+    const r = await axios.post(
+      `https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys`,
+      { clearCache: "do_not_clear" },
+      { timeout: 15000, headers: { "Authorization": `Bearer ${RENDER_API_KEY}`, "Accept": "application/json", "Content-Type": "application/json" } }
+    );
+    res.json({ ok: true, deployId: r.data?.id });
+  } catch (e) {
+    res.status(500).json({ error: e.response?.data?.message || e.message });
+  }
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────
