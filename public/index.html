@@ -4,311 +4,830 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Blox Fruits Stock</title>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      --bg: #0d0f1a;
-      --surface: #161827;
-      --card: #1e2236;
-      --border: #2a2f4a;
-      --accent: #f7b731;
-      --accent2: #eb4d4b;
-      --accent3: #6c5ce7;
-      --mirage: #00cec9;
-      --text: #e8eaf6;
-      --muted: #7f8cbf;
-      --green: #00b894;
-      --radius: 14px;
-      --shadow: 0 4px 24px rgba(0,0,0,0.45);
+      --bg: #080b12;
+      --bg2: #0c1018;
+      --surface: #111520;
+      --card: #151a28;
+      --card2: #1a2035;
+      --border: #1e2840;
+      --border2: #253050;
+      --gold: #f0a500;
+      --gold-dim: #a06800;
+      --gold-glow: rgba(240,165,0,0.18);
+      --teal: #00e5c0;
+      --teal-dim: #00856e;
+      --teal-glow: rgba(0,229,192,0.15);
+      --red: #ff4060;
+      --green: #00e87a;
+      --purple: #9b6dff;
+      --text: #d8e0f0;
+      --text2: #8898c0;
+      --muted: #3a4870;
+      --mono: 'Rajdhani', sans-serif;
+      --display: 'Orbitron', sans-serif;
+      --radius: 12px;
     }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 0 0 32px; }
 
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 40px;
+      overflow-x: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(240,165,0,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(240,165,0,0.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+      animation: gridShift 20s linear infinite;
+    }
+    @keyframes gridShift {
+      0% { background-position: 0 0; }
+      100% { background-position: 48px 48px; }
+    }
+
+    /* Radial vignette */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(240,165,0,0.06) 0%, transparent 65%),
+                  radial-gradient(ellipse at 50% 100%, rgba(0,229,192,0.04) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── HEADER ── */
     header {
-      background: linear-gradient(135deg, #1a1c2e 0%, #0d0f1a 100%);
-      border-bottom: 2px solid var(--accent);
-      padding: 18px 20px 14px;
-      display: flex; align-items: center; gap: 12px;
-      position: sticky; top: 0; z-index: 10;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(8,11,18,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
-    header .logo { font-size: 28px; }
-    header h1 { font-size: 20px; font-weight: 700; }
-    header h1 span { color: var(--accent); }
-    .live-badge {
-      margin-left: auto; background: var(--green); color: #000;
-      font-size: 11px; font-weight: 700; padding: 4px 10px;
-      border-radius: 20px; display: flex; align-items: center; gap: 5px;
-    }
-    .live-badge::before {
-      content: ''; width: 7px; height: 7px; background: #fff;
-      border-radius: 50%; animation: pulse 1.4s infinite;
-    }
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    main { padding: 20px 14px 0; max-width: 560px; margin: 0 auto; }
-
-    .status-bar {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 10px 14px;
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 12px; color: var(--muted); margin-bottom: 18px;
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0.5;
     }
-    .status-bar strong { color: var(--text); }
-    #refresh-btn {
-      background: var(--accent); color: #000; border: none;
-      border-radius: 8px; padding: 6px 14px; font-size: 12px;
-      font-weight: 700; cursor: pointer; transition: opacity .2s;
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
     }
-    #refresh-btn:active { opacity: .7; }
 
-    .history-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab-btn {
-      flex: 1; padding: 8px; border: 1px solid var(--border);
-      background: var(--surface); color: var(--muted);
-      border-radius: 10px; font-size: 12px; font-weight: 700;
-      cursor: pointer; transition: all .2s; text-align: center;
-    }
-    .tab-btn.active-current { background: var(--accent); color: #000; border-color: var(--accent); }
-    .tab-btn.active-last { background: var(--accent3); color: #fff; border-color: var(--accent3); }
-    .tab-btn.active-before { background: var(--surface); color: var(--text); border-color: var(--muted); }
-
-    .section-label {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 12px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 1px; margin: 16px 0 8px;
-    }
-    .section-label .dot { width: 10px; height: 10px; border-radius: 50%; }
-    .normal-dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-    .mirage-dot { background: var(--mirage); box-shadow: 0 0 8px var(--mirage); }
-
-    .items-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 8px; }
-
-    .fruit-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px 12px 10px;
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      box-shadow: var(--shadow); position: relative; overflow: hidden;
-      text-align: center;
-    }
-    .fruit-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-    .normal-card::before { background: var(--accent); }
-    .mirage-card::before { background: var(--mirage); }
-
-    .fruit-icon { width: 64px; height: 64px; object-fit: contain; }
-    .fruit-icon-fallback { font-size: 40px; line-height: 1; }
-    .fruit-icon-text {
-      width: 64px; height: 64px;
-      background: var(--border);
-      border-radius: 12px;
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--gold), #c07000);
+      border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 700; color: var(--accent);
+      font-size: 17px;
+      box-shadow: 0 0 14px var(--gold-glow);
+      flex-shrink: 0;
     }
-    .fruit-name { font-size: 13px; font-weight: 700; }
-    .fruit-price { font-size: 12px; color: var(--accent); font-weight: 600; }
-    .mirage-card .fruit-price { color: var(--mirage); }
-    .beli { font-size: 10px; color: var(--muted); }
 
-    .stock-panel { display: none; }
-    .stock-panel.active { display: block; }
+    .logo-text {
+      font-family: var(--display);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text);
+    }
+    .logo-text span { color: var(--gold); }
 
-    .empty-state { text-align: center; color: var(--muted); padding: 28px 0; font-size: 14px; }
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .live-pill {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(0,232,122,0.1);
+      border: 1px solid rgba(0,232,122,0.25);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-family: var(--display);
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--green);
+    }
+
+    .live-dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--green);
+      animation: livePulse 1.6s ease-in-out infinite;
+    }
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .status-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .status-btn:hover {
+      border-color: var(--purple);
+      color: var(--purple);
+      background: rgba(155,109,255,0.08);
+    }
+
+    /* ── MAIN ── */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 16px 12px 0;
+    }
+
+    /* ── OFFLINE / ERROR ── */
+    .notice {
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      display: none;
+      letter-spacing: 0.3px;
+    }
+    #offline-notice {
+      background: rgba(240,165,0,0.08);
+      border: 1px solid rgba(240,165,0,0.3);
+      color: var(--gold);
+    }
+    #error-banner {
+      background: rgba(255,64,96,0.08);
+      border: 1px solid rgba(255,64,96,0.3);
+      color: var(--red);
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .status-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .status-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      font-family: var(--display);
+      text-transform: uppercase;
+    }
+
+    .status-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.3px;
+    }
+
+    .source-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
+    }
+    .source-fruityblox { background: rgba(0,229,192,0.12); color: var(--teal); border: 1px solid rgba(0,229,192,0.25); }
+    .source-wiki { background: rgba(155,109,255,0.12); color: var(--purple); border: 1px solid rgba(155,109,255,0.25); }
+    .source-cache { background: rgba(240,165,0,0.12); color: var(--gold); border: 1px solid rgba(240,165,0,0.25); }
+
+    .refresh-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--gold);
+      color: #000;
+      border: none;
+      border-radius: 9px;
+      padding: 9px 16px;
+      font-family: var(--display);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .refresh-btn:hover { background: #ffc030; box-shadow: 0 0 18px var(--gold-glow); }
+    .refresh-btn:active { transform: scale(0.96); }
+    .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .refresh-btn .spin-icon { display: inline-block; }
+    .refresh-btn.loading .spin-icon { animation: spinIcon 0.7s linear infinite; }
+    @keyframes spinIcon { to { transform: rotate(360deg); } }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 5px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px 6px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.22s;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .tab:hover:not(.active) {
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .tab.active-current {
+      background: linear-gradient(135deg, #a06800, var(--gold));
+      color: #000;
+      box-shadow: 0 2px 12px var(--gold-glow);
+    }
+    .tab.active-last {
+      background: linear-gradient(135deg, #5a3dcc, var(--purple));
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(155,109,255,0.25);
+    }
+    .tab.active-before {
+      background: var(--card2);
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+
+    /* ── PANELS ── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--display);
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: var(--text2);
+      text-transform: uppercase;
+      margin: 14px 0 9px;
+    }
+
+    .section-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-normal { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+    .dot-mirage { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border2), transparent);
+    }
+
+    /* ── FRUIT GRID ── */
+    .fruit-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 9px;
+      margin-bottom: 4px;
+    }
+
+    /* ── FRUIT CARD ── */
+    .fruit-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+      transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
+      cursor: default;
+    }
+
+    .fruit-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .fruit-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .fruit-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .card-normal::before { background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+    .card-normal:hover { border-color: var(--gold-dim); box-shadow: 0 4px 24px var(--gold-glow); }
+
+    .card-mirage::before { background: linear-gradient(90deg, transparent, var(--teal), transparent); }
+    .card-mirage:hover { border-color: var(--teal-dim); box-shadow: 0 4px 24px var(--teal-glow); }
+
+    /* Fruit image */
+    .fruit-img {
+      width: 62px; height: 62px;
+      object-fit: contain;
+      filter: drop-shadow(0 3px 8px rgba(0,0,0,0.5));
+      transition: transform 0.2s;
+    }
+    .fruit-card:hover .fruit-img { transform: scale(1.06) translateY(-2px); }
+
+    .fruit-initials {
+      width: 62px; height: 62px;
+      background: linear-gradient(135deg, var(--card2), var(--surface));
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--display);
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+    .card-mirage .fruit-initials { color: var(--teal); }
+
+    .fruit-name {
+      font-family: var(--display);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .fruit-price {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.3px;
+    }
+    .card-mirage .fruit-price { color: var(--teal); }
+
+    .fruit-beli {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .mirage-tag {
+      font-family: var(--display);
+      font-size: 8px;
+      letter-spacing: 2px;
+      background: rgba(0,229,192,0.1);
+      color: var(--teal);
+      border: 1px solid rgba(0,229,192,0.2);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+
+    /* ── EMPTY / LOADING ── */
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 28px 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
     .spinner {
-      display: inline-block; width: 22px; height: 22px;
-      border: 3px solid var(--border); border-top-color: var(--accent);
-      border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 8px;
+      width: 24px; height: 24px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 10px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    #error-banner {
-      background: #3d1212; border: 1px solid var(--accent2);
-      color: #ffb3b3; border-radius: var(--radius);
-      padding: 12px 16px; font-size: 13px; margin-bottom: 16px; display: none;
+    /* ── STAGGER ANIMATIONS ── */
+    .fruit-card {
+      animation: cardIn 0.35s ease both;
     }
-    #offline-notice {
-      background: #2d1700; border: 1px solid var(--accent);
-      color: var(--accent); border-radius: var(--radius);
-      padding: 8px 14px; font-size: 12px; text-align: center;
-      margin-bottom: 14px; display: none;
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    .mirage-badge {
-      background: #003d3b; color: var(--mirage);
-      font-size: 10px; font-weight: 700; padding: 2px 7px;
-      border-radius: 20px; display: inline-block;
+    .fruit-card:nth-child(1) { animation-delay: 0ms; }
+    .fruit-card:nth-child(2) { animation-delay: 50ms; }
+    .fruit-card:nth-child(3) { animation-delay: 100ms; }
+    .fruit-card:nth-child(4) { animation-delay: 150ms; }
+    .fruit-card:nth-child(5) { animation-delay: 200ms; }
+    .fruit-card:nth-child(6) { animation-delay: 250ms; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--card2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: var(--text);
+      z-index: 200;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
     }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    #toast.toast-ok { border-color: rgba(0,232,122,0.4); color: var(--green); }
+    #toast.toast-warn { border-color: rgba(240,165,0,0.4); color: var(--gold); }
+    #toast.toast-err { border-color: rgba(255,64,96,0.4); color: var(--red); }
   </style>
 </head>
 <body>
 
 <header>
-  <span class="logo">🍎</span>
-  <h1>Blox Fruits <span>Stock</span></h1>
-  <span class="live-badge">LIVE</span>
+  <div class="logo-wrap">
+    <div class="logo-icon">🍎</div>
+    <div class="logo-text">Blox Fruits <span>Stock</span></div>
+  </div>
+  <div class="header-right">
+    <div class="live-pill">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+    <a href="/status.html" class="status-btn">⚙ SYS</a>
+  </div>
 </header>
 
 <main>
-  <div id="offline-notice">📴 Offline — showing cached data</div>
-  <div id="error-banner"></div>
+  <div id="offline-notice" class="notice">📴 Offline — showing cached data</div>
+  <div id="error-banner" class="notice"></div>
 
+  <!-- Status bar -->
   <div class="status-bar">
-    <div>Last updated: <strong id="last-updated">—</strong></div>
-    <button id="refresh-btn" onclick="loadStock()">↻ Refresh</button>
+    <div class="status-left">
+      <div class="status-label">Last Fetched</div>
+      <div class="status-value" id="last-updated">—</div>
+      <div id="source-badge"></div>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" onclick="doRefresh()">
+      <span class="spin-icon">↻</span>
+      REFRESH
+    </button>
   </div>
 
-  <div class="history-tabs">
-    <div class="tab-btn active-current" onclick="showPanel('current')">🟡 Current</div>
-    <div class="tab-btn" onclick="showPanel('last')">🟣 Last</div>
-    <div class="tab-btn" onclick="showPanel('before')">⚫ Before</div>
-    <div class="tab-btn" onclick="window.location.href='/status.html'" style="background:var(--accent3);color:#fff;border-color:var(--accent3);">⚙ Status</div>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active-current" id="tab-current" onclick="showPanel('current')">🟡 Current</button>
+    <button class="tab" id="tab-last" onclick="showPanel('last')">🟣 Last</button>
+    <button class="tab" id="tab-before" onclick="showPanel('before')">⚫ Before</button>
   </div>
 
-  <div id="panel-current" class="stock-panel active">
-    <div class="section-label"><span class="dot normal-dot"></span> Normal Stock</div>
-    <div id="current-normal" class="items-grid"><div class="empty-state"><div class="spinner"></div><br>Loading…</div></div>
-    <div class="section-label"><span class="dot mirage-dot"></span> Mirage Stock</div>
-    <div id="current-mirage" class="items-grid"><div class="empty-state"><div class="spinner"></div><br>Loading…</div></div>
+  <!-- Current panel -->
+  <div id="panel-current" class="panel active">
+    <div class="section-label"><span class="section-dot dot-normal"></span> Normal Stock</div>
+    <div class="fruit-grid" id="current-normal">
+      <div class="empty"><div class="spinner"></div>Loading…</div>
+    </div>
+    <div class="section-label"><span class="section-dot dot-mirage"></span> Mirage Stock</div>
+    <div class="fruit-grid" id="current-mirage">
+      <div class="empty"><div class="spinner"></div>Loading…</div>
+    </div>
   </div>
 
-  <div id="panel-last" class="stock-panel">
-    <div class="section-label"><span class="dot normal-dot"></span> Normal Stock</div>
-    <div id="last-normal" class="items-grid"><div class="empty-state">No data yet</div></div>
-    <div class="section-label"><span class="dot mirage-dot"></span> Mirage Stock</div>
-    <div id="last-mirage" class="items-grid"><div class="empty-state">No data yet</div></div>
+  <!-- Last panel -->
+  <div id="panel-last" class="panel">
+    <div class="section-label"><span class="section-dot dot-normal"></span> Normal Stock</div>
+    <div class="fruit-grid" id="last-normal">
+      <div class="empty">No data yet</div>
+    </div>
+    <div class="section-label"><span class="section-dot dot-mirage"></span> Mirage Stock</div>
+    <div class="fruit-grid" id="last-mirage">
+      <div class="empty">No data yet</div>
+    </div>
   </div>
 
-  <div id="panel-before" class="stock-panel">
-    <div class="section-label"><span class="dot normal-dot"></span> Normal Stock</div>
-    <div id="before-normal" class="items-grid"><div class="empty-state">No data yet</div></div>
-    <div class="section-label"><span class="dot mirage-dot"></span> Mirage Stock</div>
-    <div id="before-mirage" class="items-grid"><div class="empty-state">No data yet</div></div>
+  <!-- Before panel -->
+  <div id="panel-before" class="panel">
+    <div class="section-label"><span class="section-dot dot-normal"></span> Normal Stock</div>
+    <div class="fruit-grid" id="before-normal">
+      <div class="empty">No data yet</div>
+    </div>
+    <div class="section-label"><span class="section-dot dot-mirage"></span> Mirage Stock</div>
+    <div class="fruit-grid" id="before-mirage">
+      <div class="empty">No data yet</div>
+    </div>
   </div>
 </main>
 
-<script>
-  const API_BASE = window.BACKEND_URL || "https://bloxfruits-stock-api-xh8c.onrender.com";
-  const CACHE_KEY = "bloxfruits_stock_v3";
-  const REFRESH_MS = 2 * 60 * 1000;
+<div id="toast"></div>
 
-  // Fruits met afbeeldingen — bestandsnaam zonder .webp
-  const FRUIT_FILENAMES = {
-    "Blizzard":  "blizzard",
-    "Buddha":    "buddha",
-    "Control":   "control",
-    "Creation":  "creation",
-    "Dough":     "dough",
-    "Dragon":    "dragon",
-    "Gas":       "gas",
-    "Gravity":   "gravity",
-    "Kitsune":   "kitsune",
-    "Lightning": "lightning",
-    "Love":      "love",
-    "Mammoth":   "mammoth",
-    "Pain":      "pain",
-    "Phoenix":   "phoenix",
-    "Portal":    "portal",
-    "Quake":     "quake",
-    "Shadow":    "shadow",
-    "Sound":     "sound",
-    "Spider":    "spider",
-    "Spirit":    "spirit",
-    "Tiger":     "tiger",
-    "T-Rex":     "Trex",
-    "Venom":     "venom",
-    "Yeti":      "yeti",
+<script>
+  const API_BASE = window.BACKEND_URL || "";
+  const CACHE_KEY = "bloxfruits_stock_v4";
+  const AUTO_POLL_MS = 2 * 60 * 1000;
+
+  // Fruit image map
+  const FRUIT_IMAGES = {
+    "Blizzard":"blizzard","Buddha":"buddha","Control":"control","Creation":"creation",
+    "Dough":"dough","Dragon":"dragon","Gas":"gas","Gravity":"gravity","Kitsune":"kitsune",
+    "Lightning":"lightning","Love":"love","Mammoth":"mammoth","Pain":"pain","Phoenix":"phoenix",
+    "Portal":"portal","Quake":"quake","Shadow":"shadow","Sound":"sound","Spider":"spider",
+    "Spirit":"spirit","Tiger":"tiger","T-Rex":"Trex","Venom":"venom","Yeti":"yeti",
   };
 
-  function getIcon(name) {
-    var filename = FRUIT_FILENAMES[name];
-    if (filename) {
-      return '<img src="/images/' + filename + '.webp" class="fruit-icon" ' +
-             'onerror="this.outerHTML=\'<span class=\\\'fruit-icon-fallback\\\'>🍑</span>\'">';
-    }
-    // Geen afbeelding — toon eerste 2 letters als icoon
-    return '<div class="fruit-icon-text">' + name.slice(0, 2) + '</div>';
+  let currentSource = null; // "fruityblox" | "wiki" | "cache"
+  let activePanel = "current";
+
+  // ── Toast ──────────────────────────────────────────────────────────────
+  let toastTimer = null;
+  function toast(msg, type = "ok") {
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.className = "show toast-" + type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ""; }, 2800);
   }
 
+  // ── Tabs ───────────────────────────────────────────────────────────────
+  function showPanel(name) {
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + name).classList.add("active");
+
+    const tabs = { current: "active-current", last: "active-last", before: "active-before" };
+    ["current","last","before"].forEach(t => {
+      const btn = document.getElementById("tab-" + t);
+      btn.className = "tab" + (t === name ? " " + tabs[t] : "");
+    });
+    activePanel = name;
+  }
+
+  // ── Fruit icon ─────────────────────────────────────────────────────────
+  function fruitIcon(name) {
+    const file = FRUIT_IMAGES[name];
+    if (file) {
+      return `<img src="/images/${file}.webp" class="fruit-img"
+                alt="${name}"
+                onerror="this.outerHTML='<div class=\\'fruit-initials\\'>${name.slice(0,2)}</div>'">`;
+    }
+    return `<div class="fruit-initials">${name.slice(0,2)}</div>`;
+  }
+
+  // ── Render items ───────────────────────────────────────────────────────
   function renderItems(containerId, items, type) {
-    var el = document.getElementById(containerId);
+    const el = document.getElementById(containerId);
     if (!items || items.length === 0) {
-      el.innerHTML = '<div class="empty-state">No data available</div>';
+      el.innerHTML = `<div class="empty">No data available</div>`;
       return;
     }
-    var cardClass = type === "mirage" ? "mirage-card" : "normal-card";
-    el.innerHTML = items.map(function(item) {
-      return '<div class="fruit-card ' + cardClass + '">' +
-        getIcon(item.name) +
-        '<div class="fruit-name">' + item.name + '</div>' +
-        '<div class="fruit-price">' + item.price.toLocaleString() + ' <span class="beli">Beli</span></div>' +
-        (type === "mirage" ? '<span class="mirage-badge">MIRAGE</span>' : '') +
-      '</div>';
-    }).join("");
+    const isMirage = type === "mirage";
+    const cardClass = isMirage ? "card-mirage" : "card-normal";
+    el.innerHTML = items.map(item => `
+      <div class="fruit-card ${cardClass}">
+        ${fruitIcon(item.name)}
+        <div class="fruit-name">${item.name}</div>
+        <div class="fruit-price">${(item.price || 0).toLocaleString('nl-NL')} <span class="fruit-beli">Beli</span></div>
+        ${isMirage ? '<span class="mirage-tag">MIRAGE</span>' : ''}
+      </div>
+    `).join("");
   }
 
-  function renderStock(prefix, stockData) {
-    if (!stockData || (!stockData.normal && !stockData.mirage)) {
-      document.getElementById(prefix + "-normal").innerHTML = '<div class="empty-state">No data available</div>';
-      document.getElementById(prefix + "-mirage").innerHTML = '<div class="empty-state">No data available</div>';
+  function renderPanel(prefix, stockData) {
+    if (!stockData) {
+      document.getElementById(prefix + "-normal").innerHTML = `<div class="empty">No data available</div>`;
+      document.getElementById(prefix + "-mirage").innerHTML = `<div class="empty">No data available</div>`;
       return;
     }
     renderItems(prefix + "-normal", stockData.normal || [], "normal");
     renderItems(prefix + "-mirage", stockData.mirage || [], "mirage");
   }
 
+  function renderAll(data) {
+    renderPanel("current", data.current);
+    renderPanel("last", data.last);
+    renderPanel("before", data.beforeLast);
+  }
+
+  // ── Time formatting ────────────────────────────────────────────────────
   function formatTime(iso) {
     if (!iso) return "—";
     try {
-      return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      return new Date(iso).toLocaleString("nl-NL", {
+        month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit"
+      });
     } catch(e) { return iso; }
   }
 
-  function showPanel(name) {
-    document.querySelectorAll(".stock-panel").forEach(function(p) { p.classList.remove("active"); });
-    document.getElementById("panel-" + name).classList.add("active");
-    var tabs = document.querySelectorAll(".tab-btn");
-    tabs.forEach(function(t) { t.className = "tab-btn"; });
-    var map = { current: "active-current", last: "active-last", before: "active-before" };
-    var idx = { current: 0, last: 1, before: 2 };
-    if (idx[name] !== undefined) tabs[idx[name]].classList.add(map[name]);
+  // ── Source badge ───────────────────────────────────────────────────────
+  function setSourceBadge(source) {
+    const el = document.getElementById("source-badge");
+    if (!source) { el.innerHTML = ""; return; }
+    const map = {
+      fruityblox: ["source-fruityblox", "⚡ FruityBlox"],
+      wiki:       ["source-wiki",       "📖 Wiki Fallback"],
+      cache:      ["source-cache",      "💾 Cached"],
+    };
+    const [cls, label] = map[source] || ["source-cache", source];
+    el.innerHTML = `<span class="source-badge ${cls}">${label}</span>`;
   }
 
+  // ── Initial load (just reads cache, no server fetch) ───────────────────
   async function loadStock() {
-    var btn = document.getElementById("refresh-btn");
-    btn.textContent = "…"; btn.disabled = true;
-    document.getElementById("error-banner").style.display = "none";
-
-    var data = null;
-    var fromCache = false;
-
     try {
-      var res = await fetch(API_BASE + "/api/stock");
+      const res = await fetch(API_BASE + "/api/stock");
       if (!res.ok) throw new Error("HTTP " + res.status);
-      data = await res.json();
+      const data = await res.json();
       localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      renderAll(data);
+      document.getElementById("last-updated").textContent = formatTime(data.lastUpdated);
       document.getElementById("offline-notice").style.display = "none";
+      // Try to detect source from meta
+      fetchMeta();
     } catch(err) {
-      var cached = localStorage.getItem(CACHE_KEY);
+      const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
-        data = JSON.parse(cached);
-        fromCache = true;
+        const data = JSON.parse(cached);
+        renderAll(data);
+        document.getElementById("last-updated").textContent = formatTime(data.lastUpdated) + " (cached)";
         document.getElementById("offline-notice").style.display = "block";
+        setSourceBadge("cache");
       } else {
-        var banner = document.getElementById("error-banner");
-        banner.textContent = "⚠️ Could not load stock data: " + err.message;
+        const banner = document.getElementById("error-banner");
+        banner.textContent = "⚠️ Could not load stock: " + err.message;
         banner.style.display = "block";
       }
     }
-
-    if (data) {
-      renderStock("current", data.current);
-      renderStock("last", data.last);
-      renderStock("before", data.beforeLast);
-      document.getElementById("last-updated").textContent =
-        fromCache ? formatTime(data.lastUpdated) + " (cached)" : formatTime(data.lastUpdated);
-    }
-
-    btn.textContent = "↻ Refresh"; btn.disabled = false;
   }
 
+  async function fetchMeta() {
+    try {
+      const res = await fetch(API_BASE + "/api/meta");
+      if (!res.ok) return;
+      const meta = await res.json();
+      const fb = meta.sources?.fruityblox?.status;
+      if (fb === "ok") setSourceBadge("fruityblox");
+      else setSourceBadge("wiki");
+    } catch(_) {}
+  }
+
+  // ── REFRESH — calls /api/refresh (POST) to force real server fetch ─────
+  async function doRefresh() {
+    const btn = document.getElementById("refresh-btn");
+    btn.classList.add("loading");
+    btn.disabled = true;
+
+    document.getElementById("error-banner").style.display = "none";
+    document.getElementById("offline-notice").style.display = "none";
+
+    toast("⚡ Fetching fresh stock...", "ok");
+
+    try {
+      const res = await fetch(API_BASE + "/api/refresh", { method: "POST" });
+      if (!res.ok) throw new Error("Server returned " + res.status);
+
+      const json = await res.json();
+
+      if (!json.ok) throw new Error("Fetch failed on server");
+
+      const data = json.stock;
+      localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      renderAll(data);
+      document.getElementById("last-updated").textContent = formatTime(data.lastUpdated);
+
+      // Detect which source was used
+      const fb = json.sources?.fruityblox?.status;
+      const wiki = json.sources?.wiki?.status;
+      if (fb === "ok") {
+        setSourceBadge("fruityblox");
+        toast("✓ Stock updated via FruityBlox", "ok");
+      } else if (wiki === "ok") {
+        setSourceBadge("wiki");
+        toast("✓ Stock updated via Wiki (fallback)", "warn");
+      } else {
+        setSourceBadge("cache");
+        toast("⚠ Both sources failed — showing cached", "warn");
+      }
+
+    } catch(err) {
+      // Fall back to just showing cached data
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const data = JSON.parse(cached);
+        renderAll(data);
+        document.getElementById("last-updated").textContent = formatTime(data.lastUpdated) + " (cached)";
+        document.getElementById("offline-notice").style.display = "block";
+        setSourceBadge("cache");
+      }
+
+      const banner = document.getElementById("error-banner");
+      banner.textContent = "⚠️ Refresh failed: " + err.message;
+      banner.style.display = "block";
+      toast("✗ Refresh failed", "err");
+    }
+
+    btn.classList.remove("loading");
+    btn.disabled = false;
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────
   loadStock();
-  setInterval(loadStock, REFRESH_MS);
+  // Auto-poll every 2 min (passive, no forced server fetch)
+  setInterval(loadStock, AUTO_POLL_MS);
 </script>
 </body>
 </html>
